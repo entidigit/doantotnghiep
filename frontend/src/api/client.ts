@@ -29,6 +29,7 @@ export interface Agent {
   fullName: string
   farmName: string
   location: string
+  role: 'agent' | 'admin'
   createdAt: string
 }
 
@@ -121,4 +122,17 @@ export const eventApi = {
 
 export const verifyApi = {
   get: (hash: string) => api.get<VerifyData>(`/verify/${hash}`),
+}
+
+// ── Admin ──────────────────────────────────────────────────────────────────────
+
+export interface AdminBatch extends TeaBatch {
+  agentName: string
+  agentFarm: string
+}
+
+export const adminApi = {
+  listUsers: () => api.get<Agent[]>('/api/admin/users'),
+  deleteUser: (id: string) => api.delete(`/api/admin/users/${id}`),
+  listBatches: () => api.get<AdminBatch[]>('/api/admin/batches'),
 }

@@ -24,5 +24,8 @@ export function useAuth() {
     window.location.href = '/login'
   }
 
-  return { agent, loading, logout }
+  const isAdmin = agent?.role === 'admin'
+
+  return { agent, loading, logout, isAdmin }
 }
+

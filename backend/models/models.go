@@ -17,6 +17,7 @@ type Agent struct {
 	FullName     string             `bson:"fullName"        json:"fullName"`
 	FarmName     string             `bson:"farmName"        json:"farmName"`
 	Location     string             `bson:"location"        json:"location"`
+	Role         string             `bson:"role"            json:"role"` // "agent" | "admin"
 	CreatedAt    time.Time          `bson:"createdAt"       json:"createdAt"`
 }
 

@@ -5,7 +5,10 @@ import DashboardPage from './pages/DashboardPage'
 import BatchDetailPage from './pages/BatchDetailPage'
 import CreateBatchPage from './pages/CreateBatchPage'
 import VerifyPage from './pages/VerifyPage'
+import AdminUsersPage from './pages/AdminUsersPage'
+import AdminBatchesPage from './pages/AdminBatchesPage'
 import ProtectedRoute from './components/ProtectedRoute'
+import AdminRoute from './components/AdminRoute'
 
 export default function App() {
   return (
@@ -15,10 +18,17 @@ export default function App() {
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/verify/:hash" element={<VerifyPage />} />
 
+        {/* Agent routes */}
         <Route element={<ProtectedRoute />}>
           <Route path="/" element={<DashboardPage />} />
           <Route path="/batches/new" element={<CreateBatchPage />} />
           <Route path="/batches/:id" element={<BatchDetailPage />} />
+        </Route>
+
+        {/* Admin routes */}
+        <Route element={<AdminRoute />}>
+          <Route path="/admin/users" element={<AdminUsersPage />} />
+          <Route path="/admin/batches" element={<AdminBatchesPage />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

@@ -53,6 +53,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		FullName:     body.FullName,
 		FarmName:     body.FarmName,
 		Location:     body.Location,
+		Role:         "agent",
 		CreatedAt:    time.Now(),
 	}
 
@@ -97,10 +98,15 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	role := agent.Role
+	if role == "" {
+		role = "agent"
+	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"agentId":  agent.ID.Hex(),
 		"username": agent.Username,
 		"farmName": agent.FarmName,
+		"role":     role,
 		"exp":      time.Now().Add(24 * time.Hour).Unix(),
 	})
 	tokenStr, err := token.SignedString([]byte(h.JWTSecret))
@@ -114,6 +120,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		"agentId":  agent.ID.Hex(),
 		"username": agent.Username,
 		"farmName": agent.FarmName,
+		"role":     role,
 	})
 }
 

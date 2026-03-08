@@ -47,6 +47,7 @@ func main() {
 	batchH := &handlers.BatchHandler{DB: db, Chain: chain, BaseURL: cfg.BaseURL}
 	eventH := &handlers.EventHandler{DB: db, Chain: chain, UploadDir: uploadDir, BaseURL: cfg.BaseURL}
 	verifyH := &handlers.VerifyHandler{DB: db, BaseURL: cfg.BaseURL}
+	adminH := &handlers.AdminHandler{DB: db}
 
 	jwtMW := middleware.JWT(cfg.JWTSecret)
 
@@ -93,6 +94,33 @@ func main() {
 		case r.Method == http.MethodGet:
 			batchH.Get(w, r)
 		default:
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		}
+	})))
+
+	// Admin routes (JWT + admin role required)
+	adminMW := func(h http.Handler) http.Handler { return jwtMW(middleware.RequireAdmin(h)) }
+
+	mux.Handle("/api/admin/users", adminMW(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			adminH.ListUsers(w, r)
+		} else {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		}
+	})))
+
+	mux.Handle("/api/admin/users/", adminMW(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodDelete {
+			adminH.DeleteUser(w, r)
+		} else {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		}
+	})))
+
+	mux.Handle("/api/admin/batches", adminMW(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			adminH.ListBatches(w, r)
+		} else {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		}
 	})))
