@@ -1,0 +1,63 @@
+services:
+  # ── MongoDB ────────────────────────────────────────────────────────────────
+  mongo:
+    image: mongo:6.0
+    container_name: tea_mongo
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER:-tea_admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASS:-tea_secret}
+      MONGO_INITDB_DATABASE: tea_origin
+    volumes:
+      - mongo_data:/data/db
+    # Không mở cổng ra ngoài – backend truy cập qua network nội bộ
+    networks:
+      - tea_net
+
+  # ── Backend (Go) ───────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: tea_backend
+    restart: unless-stopped
+    depends_on:
+      - mongo
+    environment:
+      PORT:           "8080"
+      MONGO_URI:      mongodb://${MONGO_USER:-tea_admin}:${MONGO_PASS:-tea_secret}@mongo:27017/tea_origin?authSource=admin
+      JWT_SECRET:     ${JWT_SECRET:-change_me_in_production}
+      BASE_URL:       ${BASE_URL:-http://localhost}
+      IBN_API_KEY:    ${IBN_API_KEY:-347e69c9-0946-4e43-9b03-e63a184cd0ad}
+      RPC_PUBLIC:     ${RPC_PUBLIC:-http://203.113.135.200:3002/api/rpc}
+      RPC_SEND:       ${RPC_SEND:-http://203.113.135.200:3002/api/rpc/send}
+      RPC_AUTH:       ${RPC_AUTH:-http://203.113.135.200:3002/api/rpc/auth}
+      WALLET_ADDRESS: ${WALLET_ADDRESS:-0x029b0720f7880F2b6041a4b4d75eFa872a8eC521}
+    ports:
+      - "9998:8080"
+    volumes:
+      - uploads_data:/app/uploads
+    networks:
+      - tea_net
+
+  # ── Frontend (nginx + React build) ─────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: tea_frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "9999:80"
+    networks:
+      - tea_net
+
+volumes:
+  mongo_data:
+  uploads_data:
+
+networks:
+  tea_net:
+    driver: bridge

@@ -1,0 +1,19 @@
+# Environment
+.env
+
+# Backend
+backend/uploads/
+backend/*.log
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+
+# Go
+*.exe
+*.test
+*.out
+backend/tea-origin
+
+# Docker
+*.log
