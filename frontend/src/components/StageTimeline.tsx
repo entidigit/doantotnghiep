@@ -1,20 +1,22 @@
+import { Sprout, Leaf, Droplets, Scissors, Sun, Settings2, Package, Clock, MapPin, type LucideIcon } from 'lucide-react'
 import type { Event } from '../api/client'
 
 interface StageInfo {
   label: string
-  color: string
-  bg: string
-  emoji: string
+  textClass: string
+  bgClass: string
+  borderClass: string
+  Icon: LucideIcon
 }
 
 const STAGE: Record<string, StageInfo> = {
-  planting:    { label: 'Trồng cây',   color: 'text-lime-700',   bg: 'bg-lime-500',    emoji: '🌱' },
-  fertilizing: { label: 'Bón phân',    color: 'text-yellow-700', bg: 'bg-yellow-500',  emoji: '🌿' },
-  spraying:    { label: 'Phun thuốc',  color: 'text-orange-700', bg: 'bg-orange-400',  emoji: '💧' },
-  harvesting:  { label: 'Thu hoạch',   color: 'text-green-700',  bg: 'bg-green-600',   emoji: '🍃' },
-  drying:      { label: 'Phơi sấy',    color: 'text-amber-700',  bg: 'bg-amber-500',   emoji: '☀️' },
-  processing:  { label: 'Chế biến',    color: 'text-teal-700',   bg: 'bg-teal-500',    emoji: '⚙️' },
-  packaging:   { label: 'Đóng gói',    color: 'text-tea-700',    bg: 'bg-tea-700',     emoji: '📦' },
+  planting:    { label: 'Trồng cây',  textClass: 'text-emerald-700', bgClass: 'bg-emerald-50', borderClass: 'border-emerald-200', Icon: Sprout    },
+  fertilizing: { label: 'Bón phân',   textClass: 'text-lime-700',    bgClass: 'bg-lime-50',    borderClass: 'border-lime-200',    Icon: Leaf      },
+  spraying:    { label: 'Phun thuốc', textClass: 'text-blue-700',    bgClass: 'bg-blue-50',    borderClass: 'border-blue-200',    Icon: Droplets  },
+  harvesting:  { label: 'Thu hoạch',  textClass: 'text-green-700',   bgClass: 'bg-green-50',   borderClass: 'border-green-200',   Icon: Scissors  },
+  drying:      { label: 'Phơi sấy',   textClass: 'text-amber-700',   bgClass: 'bg-amber-50',   borderClass: 'border-amber-200',   Icon: Sun       },
+  processing:  { label: 'Chế biến',   textClass: 'text-orange-700',  bgClass: 'bg-orange-50',  borderClass: 'border-orange-200',  Icon: Settings2 },
+  packaging:   { label: 'Đóng gói',   textClass: 'text-teal-700',    bgClass: 'bg-teal-50',    borderClass: 'border-teal-200',    Icon: Package   },
 }
 
 function fmt(ts: string) {
@@ -29,24 +31,30 @@ export default function StageTimeline({ events }: { events: Event[] }) {
     return <p className="text-gray-400 text-sm italic py-4">Chưa có sự kiện nào.</p>
 
   return (
-    <ol className="relative border-l-2 border-tea-200 space-y-8 pl-6 ml-1">
+    <ol className="relative border-l-2 border-gray-200 space-y-6 pl-6 ml-1">
       {events.map((e, i) => {
-        const s = STAGE[e.stage] ?? { label: e.stage, color: 'text-gray-700', bg: 'bg-gray-400', emoji: '📋' }
+        const s = STAGE[e.stage] ?? { label: e.stage, textClass: 'text-gray-700', bgClass: 'bg-gray-50', borderClass: 'border-gray-200', Icon: Package }
         return (
           <li key={e.id} className="relative">
             {/* dot */}
-            <span className={`absolute -left-[1.45rem] top-1.5 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white shadow-md ${s.bg}`}>
-              {i + 1}
+            <span className={`absolute -left-[1.45rem] top-2 w-6 h-6 rounded-full flex items-center justify-center shadow-sm border ${s.bgClass} ${s.borderClass}`}>
+              <s.Icon className={`w-3 h-3 ${s.textClass}`} />
             </span>
 
             <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 hover:shadow-md transition">
               {/* stage badge + time */}
               <div className="flex flex-wrap items-center gap-2 mb-2">
-                <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full text-white ${s.bg}`}>
-                  {s.emoji} {s.label}
+                <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-md border ${s.bgClass} ${s.textClass} ${s.borderClass}`}>
+                  <s.Icon className="w-3 h-3" /> {s.label}
                 </span>
-                <span className="text-xs text-gray-400">🕐 {fmt(e.timestamp)}</span>
-                {e.location && <span className="text-xs text-gray-400">📍 {e.location}</span>}
+                <span className="inline-flex items-center gap-1 text-xs text-gray-400">
+                  <Clock className="w-3 h-3" /> {fmt(e.timestamp)}
+                </span>
+                {e.location && (
+                  <span className="inline-flex items-center gap-1 text-xs text-gray-400">
+                    <MapPin className="w-3 h-3" /> {e.location}
+                  </span>
+                )}
               </div>
 
               {/* description */}

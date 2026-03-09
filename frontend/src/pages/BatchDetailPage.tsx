@@ -3,8 +3,9 @@ import { useParams, Link } from 'react-router-dom'
 import {
   ChevronLeft, Plus, Package, QrCode, ExternalLink,
   CheckCircle2, Loader2, Camera, MapPin, CalendarDays,
-  Scale, Hash, Clock, Sprout, Leaf, Activity, Archive,
+  Scale, Hash, Clock, Sprout, Leaf, Activity,
   X, ChevronDown, ChevronUp, Info, Image as ImageIcon,
+  Droplets, Scissors, Sun, Settings2, AlertTriangle, Link2, ShieldCheck,
 } from 'lucide-react'
 import Layout from '../components/Layout'
 import { batchApi, eventApi, type TeaBatch, type Event } from '../api/client'
@@ -12,13 +13,13 @@ import { batchApi, eventApi, type TeaBatch, type Event } from '../api/client'
 // ── Stage config ─────────────────────────────────────────────────────────────
 
 const STAGES = [
-  { value: 'planting', label: 'Trồng cây', emoji: '🌱', color: 'emerald' },
-  { value: 'fertilizing', label: 'Bón phân', emoji: '🌿', color: 'lime' },
-  { value: 'spraying', label: 'Phun thuốc', emoji: '💧', color: 'blue' },
-  { value: 'harvesting', label: 'Thu hoạch', emoji: '🍃', color: 'green' },
-  { value: 'drying', label: 'Phơi sấy', emoji: '☀️', color: 'amber' },
-  { value: 'processing', label: 'Chế biến', emoji: '⚙️', color: 'orange' },
-  { value: 'packaging', label: 'Đóng gói', emoji: '📦', color: 'teal' },
+  { value: 'planting',    label: 'Trồng cây',  Icon: Sprout,    dotClass: 'bg-emerald-50 text-emerald-600 border-emerald-200' },
+  { value: 'fertilizing', label: 'Bón phân',   Icon: Leaf,      dotClass: 'bg-lime-50    text-lime-600    border-lime-200'    },
+  { value: 'spraying',    label: 'Phun thuốc', Icon: Droplets,  dotClass: 'bg-blue-50    text-blue-600    border-blue-200'    },
+  { value: 'harvesting',  label: 'Thu hoạch',  Icon: Scissors,  dotClass: 'bg-green-50   text-green-600   border-green-200'   },
+  { value: 'drying',      label: 'Phơi sấy',   Icon: Sun,       dotClass: 'bg-amber-50   text-amber-600   border-amber-200'   },
+  { value: 'processing',  label: 'Chế biến',   Icon: Settings2, dotClass: 'bg-orange-50  text-orange-600  border-orange-200'  },
+  { value: 'packaging',   label: 'Đóng gói',   Icon: Package,   dotClass: 'bg-teal-50    text-teal-600    border-teal-200'    },
 ]
 
 const STAGE_MAP = Object.fromEntries(STAGES.map((s) => [s.value, s]))
@@ -94,8 +95,8 @@ function EventCard({ ev, idx, total }: { ev: Event; idx: number; total: number }
       <div className="flex gap-4">
         {/* Timeline line */}
         <div className="flex flex-col items-center shrink-0">
-          <div className="w-9 h-9 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center text-base shadow-md shadow-emerald-600/20 shrink-0">
-            {stage.emoji}
+          <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border ${stage.dotClass}`}>
+            <stage.Icon className="w-4 h-4" />
           </div>
           {idx < total - 1 && (
             <div className="w-0.5 flex-1 bg-gradient-to-b from-emerald-200 to-transparent mt-2 min-h-[24px]" />
@@ -238,32 +239,33 @@ function AddEventForm({ batchId, onSaved }: { batchId: string; onSaved: () => vo
         {/* Stage selector */}
         <div>
           <label className="label">Giai đoạn sản xuất</label>
-          <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+          <div className="flex flex-wrap gap-1.5">
             {STAGES.map((s) => (
               <button
                 key={s.value}
                 type="button"
                 onClick={() => setStage(s.value)}
-                className={`flex flex-col items-center gap-1 py-2.5 px-2 rounded-xl border text-center transition-all ${stage === s.value
-                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
-                    : 'bg-white text-gray-600 border-gray-200 hover:border-emerald-300 hover:text-emerald-700'
-                  }`}
+                className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                  stage === s.value
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700'
+                }`}
               >
-                <span className="text-xl leading-none">{s.emoji}</span>
-                <span className="text-[10px] font-semibold leading-tight">{s.label}</span>
+                {s.label}
               </button>
             ))}
+          </div>
+          {/* selected indicator */}
+          <div className="mt-2 flex items-center gap-1.5 text-xs text-emerald-700 font-medium">
+            {(() => { const s = STAGES.find(x => x.value === stage)!; return <><s.Icon className="w-3.5 h-3.5" />{s.label}</> })()} 
+            <span className="text-gray-300">đã chọn</span>
           </div>
         </div>
 
         {/* Date & Location */}
         <div className="grid sm:grid-cols-2 gap-4">
           <div>
-            <label className="label">
-              <span className="flex items-center gap-1">
-                <CalendarDays className="w-3.5 h-3.5 text-gray-400" /> Ngày xảy ra
-              </span>
-            </label>
+            <label className="label">Ngày xảy ra</label>
             <input
               type="datetime-local"
               className="input-field"
@@ -272,11 +274,7 @@ function AddEventForm({ batchId, onSaved }: { batchId: string; onSaved: () => vo
             />
           </div>
           <div>
-            <label className="label">
-              <span className="flex items-center gap-1">
-                <MapPin className="w-3.5 h-3.5 text-gray-400" /> Địa điểm
-              </span>
-            </label>
+            <label className="label">Địa điểm</label>
             <input
               className="input-field"
               placeholder="VD: Khu A, lô B..."
@@ -303,11 +301,7 @@ function AddEventForm({ batchId, onSaved }: { batchId: string; onSaved: () => vo
 
         {/* Image upload */}
         <div>
-          <label className="label">
-            <span className="flex items-center gap-1">
-              <Camera className="w-3.5 h-3.5 text-gray-400" /> Hình ảnh minh chứng
-            </span>
-          </label>
+          <label className="label">Hình ảnh minh chứng</label>
           <label className="flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-gray-200 rounded-xl cursor-pointer hover:border-emerald-400 hover:bg-emerald-50/50 transition-all">
             <ImageIcon className="w-7 h-7 text-gray-300 mb-1.5" />
             <span className="text-sm text-gray-400 font-medium">Nhấn để chọn ảnh</span>
@@ -474,10 +468,8 @@ export default function BatchDetailPage() {
                   <div
                     key={s.value}
                     title={s.label}
-                    className={`text-sm transition-all ${stagesDone.includes(s.value) ? 'grayscale-0' : 'grayscale opacity-30'}`}
-                  >
-                    {s.emoji}
-                  </div>
+                    className={`w-2 h-2 rounded-full transition-all ${stagesDone.includes(s.value) ? 'bg-emerald-500' : 'bg-gray-200'}`}
+                  />
                 ))}
               </div>
             </div>
@@ -487,9 +479,9 @@ export default function BatchDetailPage() {
           {isPackaged && batch.batchHash && (
             <div className="mt-4 p-4 bg-gradient-to-r from-teal-50 to-emerald-50 border border-teal-200/60 rounded-xl">
               <p className="text-xs font-bold text-teal-700 uppercase tracking-wide mb-3 flex items-center gap-1.5">
-                🔗 Blockchain Proof
+                <Link2 className="w-3.5 h-3.5" /> Blockchain Proof
                 <span className="inline-flex items-center gap-1 bg-teal-100 text-teal-700 px-1.5 py-0.5 rounded-full text-[10px] font-semibold">
-                  ✓ Verified
+                  <ShieldCheck className="w-3 h-3" /> Verified
                 </span>
               </p>
               <div className="space-y-2 text-xs font-mono">
@@ -536,7 +528,7 @@ export default function BatchDetailPage() {
               label: 'Sự kiện ghi nhận',
             },
             {
-              icon: <span className="text-base leading-none">🌱</span>,
+              icon: <Sprout className="w-4 h-4 text-emerald-500" />,
               bg: 'bg-emerald-50',
               value: stagesDone.length,
               label: 'Giai đoạn đã qua',
@@ -597,7 +589,9 @@ export default function BatchDetailPage() {
             {/* Events list */}
             {events.length === 0 ? (
               <div className="card py-16 text-center animate-fade-in">
-                <div className="text-5xl mb-3">🌱</div>
+                <div className="w-14 h-14 bg-emerald-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <Sprout className="w-7 h-7 text-emerald-400" />
+              </div>
                 <p className="text-gray-500 font-semibold">Chưa có sự kiện nào</p>
                 <p className="text-sm text-gray-400 mt-1">
                   Bắt đầu ghi nhận từ giai đoạn trồng cây
@@ -634,7 +628,7 @@ export default function BatchDetailPage() {
                   { k: 'Trang trại', v: batch.farmName, icon: <Sprout className="w-3.5 h-3.5" /> },
                   { k: 'Khối lượng', v: `${batch.weightGram}g / gói`, icon: <Scale className="w-3.5 h-3.5" /> },
                   { k: 'Ngày tạo', v: fmt(batch.createdAt), icon: <CalendarDays className="w-3.5 h-3.5" /> },
-                  { k: 'Trạng thái', v: isPackaged ? '✅ Đã đóng gói' : '🌿 Đang sản xuất', icon: null },
+                  { k: 'Trạng thái', v: isPackaged ? 'Đã đóng gói' : 'Đang sản xuất', icon: isPackaged ? <CheckCircle2 className="w-3.5 h-3.5 text-teal-500" /> : <Activity className="w-3.5 h-3.5 text-emerald-500" /> },
                 ].filter((r) => r.v).map(({ k, v, icon }) => (
                   <div key={k} className="flex items-start justify-between gap-2 py-1.5 border-b last:border-0 border-gray-50">
                     <dt className="text-xs text-gray-400 flex items-center gap-1 shrink-0 font-medium">
@@ -649,29 +643,23 @@ export default function BatchDetailPage() {
 
             {/* Stage checklist */}
             <div className="card p-5 animate-fade-in">
-              <h3 className="section-title mb-3 flex items-center gap-2">
-                <Archive className="w-4 h-4 text-gray-400" /> Giai đoạn sản xuất
-              </h3>
-              <div className="space-y-2">
-                {STAGES.map((s) => {
+              <h3 className="section-title mb-3">Giai đoạn sản xuất</h3>
+              <div className="divide-y divide-gray-50">
+                {STAGES.map((s, idx) => {
                   const done = stagesDone.includes(s.value)
                   const eventsInStage = events.filter((e) => e.stage === s.value)
                   return (
-                    <div
-                      key={s.value}
-                      className={`flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all ${done ? 'bg-emerald-50 border border-emerald-100' : 'bg-gray-50 border border-transparent'
-                        }`}
-                    >
-                      <span className="text-base">{s.emoji}</span>
-                      <span className={`text-sm flex-1 font-medium ${done ? 'text-emerald-700' : 'text-gray-400'}`}>
+                    <div key={s.value} className="flex items-center gap-3 py-2">
+                      <span className={`w-5 h-5 rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold ${
+                        done ? 'bg-emerald-500 text-white' : 'bg-gray-100 text-gray-300'
+                      }`}>{idx + 1}</span>
+                      <span className={`text-sm flex-1 ${done ? 'text-gray-800 font-medium' : 'text-gray-400'}`}>
                         {s.label}
                       </span>
-                      {done ? (
-                        <span className="text-[10px] font-bold text-emerald-600 bg-emerald-100 px-1.5 py-0.5 rounded-full">
+                      {done && (
+                        <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
                           {eventsInStage.length}x
                         </span>
-                      ) : (
-                        <span className="text-[10px] text-gray-300">—</span>
                       )}
                     </div>
                   )
@@ -690,7 +678,7 @@ export default function BatchDetailPage() {
                 </p>
                 {events.length === 0 ? (
                   <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 text-amber-700 text-xs px-3 py-2.5 rounded-xl">
-                    <span>⚠️</span>
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                     <span>Cần ít nhất 1 sự kiện trước khi đóng gói.</span>
                   </div>
                 ) : (
