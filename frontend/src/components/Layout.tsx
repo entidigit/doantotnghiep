@@ -20,7 +20,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             </div>
             <div className="hidden sm:block">
               <div className="text-sm font-extrabold tracking-tight text-gradient">Chè Sạch</div>
-              <div className="text-[10px] text-gray-400 leading-none -mt-0.5">Truy xuất nguồn gốc</div>
+              <div className="text-[10px] text-gray-400 leading-none -mt-0.5">Tùng Dương Tea</div>
             </div>
           </Link>
 
@@ -104,7 +104,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       <footer className="text-center text-xs text-gray-400 py-4 border-t border-white/60 bg-white/40 backdrop-blur-sm">
         <span className="inline-flex items-center gap-1.5">
           <Leaf className="w-3 h-3 text-emerald-500" />
-          Hệ thống xác thực nguồn gốc chè — Dữ liệu lưu trên blockchain IBN
+          Tùng Dương Tea — Dữ liệu lưu trên blockchain IBN
         </span>
       </footer>
     </div>

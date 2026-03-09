@@ -36,7 +36,7 @@ export default function LoginPage() {
           <div className="bg-tea-100 p-4 rounded-2xl mb-4">
             <Leaf className="w-9 h-9 text-tea-700" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">Chè Sạch</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Tùng Dương Tea</h1>
           <p className="text-gray-500 text-sm mt-1">Đăng nhập tài khoản đại lý</p>
         </div>
         <div className="flex items-center justify-center mb-6">

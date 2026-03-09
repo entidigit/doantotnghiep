@@ -45,7 +45,7 @@ export default function RegisterPage() {
             <Leaf className="w-9 h-9 text-tea-700" />
           </div>
           <h1 className="text-2xl font-bold text-gray-900">Tạo tài khoản đại lý</h1>
-          <p className="text-gray-500 text-sm mt-1">Hệ thống xác thực nguồn gốc chè</p>
+          <p className="text-gray-500 text-sm mt-1">Tùng Dương Tea</p>
         </div>
 
         <form onSubmit={submit} className="space-y-3.5">

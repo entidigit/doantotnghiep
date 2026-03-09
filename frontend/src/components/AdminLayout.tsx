@@ -98,7 +98,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <footer className="text-center text-xs text-gray-400 py-4 border-t border-white/60 bg-white/40 backdrop-blur-sm">
         <span className="inline-flex items-center gap-1.5">
           <Leaf className="w-3 h-3 text-emerald-500" />
-          Hệ thống xác thực nguồn gốc chè — Dữ liệu lưu trên blockchain IBN
+          Tùng Dương Tea — Dữ liệu lưu trên blockchain IBN
         </span>
       </footer>
     </div>

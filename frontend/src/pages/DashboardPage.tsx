@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  Plus, Package, Leaf, CheckCircle2, Clock, RefreshCw,
-  TrendingUp, Activity, Scale, Calendar, ArrowRight, Sprout,
+  Plus, Package, CheckCircle2, Clock, RefreshCw,
+  Activity, ArrowRight, Sprout,
 } from 'lucide-react'
 import Layout from '../components/Layout'
 import { batchApi, type TeaBatch } from '../api/client'
@@ -49,10 +49,7 @@ function BatchCard({ b }: { b: TeaBatch }) {
             {b.teaType || 'Lô chè'}
           </h3>
           {b.farmName && (
-            <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1 truncate">
-              <Leaf className="w-3 h-3 text-emerald-400 shrink-0" />
-              {b.farmName}
-            </p>
+            <p className="text-xs text-gray-400 mt-0.5 truncate">{b.farmName}</p>
           )}
         </div>
         <span className={s.badgeClass}>
@@ -64,15 +61,11 @@ function BatchCard({ b }: { b: TeaBatch }) {
       <div className="grid grid-cols-2 gap-2 mb-4">
         <div className="bg-gray-50 rounded-lg px-3 py-2">
           <div className="text-[10px] text-gray-400 uppercase tracking-wide font-medium">Khối lượng</div>
-          <div className="text-sm font-bold text-gray-800 mt-0.5 flex items-center gap-1">
-            <Scale className="w-3 h-3 text-gray-400" /> {b.weightGram}g
-          </div>
+          <div className="text-sm font-bold text-gray-800 mt-0.5">{b.weightGram}g / gói</div>
         </div>
         <div className="bg-gray-50 rounded-lg px-3 py-2">
           <div className="text-[10px] text-gray-400 uppercase tracking-wide font-medium">Ngày tạo</div>
-          <div className="text-sm font-bold text-gray-800 mt-0.5 flex items-center gap-1">
-            <Calendar className="w-3 h-3 text-gray-400" /> {fmt(b.createdAt)}
-          </div>
+          <div className="text-sm font-bold text-gray-800 mt-0.5">{fmt(b.createdAt)}</div>
         </div>
       </div>
 
@@ -153,59 +146,25 @@ export default function DashboardPage() {
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
         {[
-          {
-            label: 'Tổng lô chè',
-            value: batches.length,
-            icon: <Package className="w-5 h-5 text-blue-500" />,
-            bg: 'bg-blue-50',
-            text: 'text-blue-700',
-          },
-          {
-            label: 'Đang trồng',
-            value: growing,
-            icon: <Sprout className="w-5 h-5 text-emerald-500" />,
-            bg: 'bg-emerald-50',
-            text: 'text-emerald-700',
-          },
-          {
-            label: 'Chế biến',
-            value: processing,
-            icon: <Activity className="w-5 h-5 text-amber-500" />,
-            bg: 'bg-amber-50',
-            text: 'text-amber-700',
-          },
-          {
-            label: 'Đã đóng gói',
-            value: packaged,
-            icon: <CheckCircle2 className="w-5 h-5 text-teal-500" />,
-            bg: 'bg-teal-50',
-            text: 'text-teal-700',
-          },
+          { label: 'Tổng lô chè',  value: batches.length, accent: 'text-blue-600',    border: 'border-blue-200'    },
+          { label: 'Đang trồng',   value: growing,         accent: 'text-emerald-600', border: 'border-emerald-200' },
+          { label: 'Chế biến',     value: processing,      accent: 'text-amber-600',   border: 'border-amber-200'   },
+          { label: 'Đã đóng gói',  value: packaged,        accent: 'text-teal-600',    border: 'border-teal-200'    },
         ].map((s) => (
-          <div key={s.label} className="stat-card animate-fade-in">
-            <div className={`w-10 h-10 ${s.bg} rounded-xl flex items-center justify-center mb-2`}>
-              {s.icon}
-            </div>
-            <div className={`text-2xl font-extrabold ${s.text}`}>{s.value}</div>
-            <div className="text-xs text-gray-400 font-medium">{s.label}</div>
+          <div key={s.label} className={`stat-card animate-fade-in border-l-4 ${s.border}`}>
+            <div className={`text-3xl font-extrabold ${s.accent}`}>{s.value}</div>
+            <div className="text-xs text-gray-500 font-medium mt-1">{s.label}</div>
           </div>
         ))}
       </div>
 
       {/* Total weight banner */}
       {batches.length > 0 && (
-        <div className="card p-4 mb-6 bg-gradient-to-r from-emerald-50 to-teal-50 border-emerald-200/60 animate-fade-in">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-lg flex items-center justify-center shadow-md shadow-emerald-600/20">
-              <TrendingUp className="w-4 h-4 text-white" />
-            </div>
-            <div>
-              <div className="text-xs text-emerald-600 font-semibold uppercase tracking-wide">Tổng sản lượng</div>
-              <div className="text-xl font-extrabold text-emerald-800">
-                {(totalWeight / 1000).toFixed(1)} kg
-                <span className="text-sm font-normal text-emerald-600 ml-1.5">({totalWeight.toLocaleString()}g)</span>
-              </div>
-            </div>
+        <div className="card p-4 mb-6 border-l-4 border-emerald-400 animate-fade-in">
+          <div className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold mb-0.5">Tổng sản lượng</div>
+          <div className="text-xl font-extrabold text-emerald-700">
+            {(totalWeight / 1000).toFixed(1)} kg
+            <span className="text-sm font-normal text-gray-400 ml-1.5">{totalWeight.toLocaleString()}g</span>
           </div>
         </div>
       )}

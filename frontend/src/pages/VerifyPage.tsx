@@ -56,7 +56,7 @@ export default function VerifyPage() {
         <div className="max-w-3xl mx-auto">
           <div className="flex items-center gap-2 text-tea-300 text-sm mb-4">
             <Leaf className="w-4 h-4" />
-            Xác thực nguồn gốc chè — Blockchain IBN
+            Tùng Dương Tea — Blockchain IBN
           </div>
 
           <h1 className="text-3xl sm:text-4xl font-extrabold mb-2 leading-tight">
