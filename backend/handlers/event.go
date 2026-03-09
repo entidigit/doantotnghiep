@@ -94,7 +94,7 @@ func (h *EventHandler) Create(w http.ResponseWriter, r *http.Request) {
 		src.Close()
 		dst.Close()
 
-		imagePaths = append(imagePaths, h.BaseURL+"/uploads/"+filename)
+		imagePaths = append(imagePaths, "/uploads/"+filename)
 	}
 
 	// Tính EventHash = SHA256(batchId + stage + description + images + timestamp)

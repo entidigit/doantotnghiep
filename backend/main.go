@@ -60,6 +60,7 @@ func main() {
 		fmt.Fprintln(w, `{"status":"ok","service":"tea-origin"}`)
 	})
 	mux.HandleFunc("/verify/", verifyH.Verify)
+	mux.HandleFunc("/api/verify/", verifyH.Verify)
 	mux.HandleFunc("/qr/", verifyH.QRCode)
 	mux.Handle("/uploads/", http.StripPrefix("/uploads/", http.FileServer(http.Dir(uploadDir))))
 

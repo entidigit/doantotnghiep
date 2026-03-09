@@ -121,7 +121,7 @@ export const eventApi = {
 // ── Verify (public) ───────────────────────────────────────────────────────────
 
 export const verifyApi = {
-  get: (hash: string) => api.get<VerifyData>(`/verify/${hash}`),
+  get: (hash: string) => api.get<VerifyData>(`/api/verify/${hash}`),
 }
 
 // ── Admin ──────────────────────────────────────────────────────────────────────
