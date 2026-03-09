@@ -12,8 +12,17 @@ api.interceptors.response.use(
   (r) => r,
   (err) => {
     if (err.response?.status === 401) {
+      // Chỉ redirect về login nếu không phải public routes
+      const publicPaths = ['/', '/shop', '/verify']
+      const currentPath = window.location.pathname
+      const isPublicPath = publicPaths.some(path => currentPath.startsWith(path))
+      
       localStorage.removeItem('token')
-      window.location.href = '/login'
+      
+      // Không redirect nếu đang ở trang public
+      if (!isPublicPath && !currentPath.includes('/login')) {
+        window.location.href = '/login'
+      }
     }
     return Promise.reject(err)
   }
@@ -29,6 +38,9 @@ export interface Agent {
   fullName: string
   farmName: string
   location: string
+  bankName?: string
+  bankAccount?: string
+  bankOwner?: string
   role: 'agent' | 'admin'
   createdAt: string
 }
@@ -40,6 +52,7 @@ export interface TeaBatch {
   farmName: string
   teaType: string
   weightGram: number
+  quantity: number
   status: 'growing' | 'processing' | 'packaged'
   batchHash: string
   txHash: string
@@ -47,6 +60,16 @@ export interface TeaBatch {
   verifyUrl: string
   createdAt: string
   finalizedAt: string | null
+}
+
+export interface TeaPackage {
+  id: string
+  batchId: string
+  packageIdx: number
+  packageHash: string
+  verifyUrl: string
+  qrCode: string
+  createdAt: string
 }
 
 export interface Event {
@@ -72,6 +95,12 @@ export interface VerifyData {
     txHash: string
     verifyUrl: string
   }
+  package?: {
+    packageIdx: number
+    total: number
+    packageHash: string
+    verifyUrl: string
+  }
 }
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
@@ -92,6 +121,15 @@ export const authApi = {
     ),
 
   me: () => api.get<Agent>('/api/auth/me'),
+
+  updateProfile: (data: Partial<{
+    fullName: string
+    farmName: string
+    location: string
+    bankName: string
+    bankAccount: string
+    bankOwner: string
+  }>) => api.patch<Agent>('/api/auth/profile', data),
 }
 
 // ── Batches ───────────────────────────────────────────────────────────────────
@@ -105,10 +143,14 @@ export const batchApi = {
   get: (id: string) =>
     api.get<{ batch: TeaBatch; events: Event[] }>(`/api/batches/${id}`),
 
-  finalize: (id: string) =>
-    api.post<{ message: string; batchHash: string; txHash: string; verifyUrl: string; qrCode: string }>(
-      `/api/batches/${id}/finalize`
+  finalize: (id: string, quantity: number) =>
+    api.post<{ message: string; batchHash: string; txHash: string; verifyUrl: string; qrCode: string; quantity: number; packages: TeaPackage[] }>(
+      `/api/batches/${id}/finalize`,
+      { quantity }
     ),
+
+  listPackages: (id: string) =>
+    api.get<TeaPackage[]>(`/api/batches/${id}/packages`),
 }
 
 // ── Events ────────────────────────────────────────────────────────────────────
@@ -122,6 +164,57 @@ export const eventApi = {
 
 export const verifyApi = {
   get: (hash: string) => api.get<VerifyData>(`/api/verify/${hash}`),
+}
+
+// ── Listings ──────────────────────────────────────────────────────────────────
+
+export interface Listing {
+  id: string
+  batchId: string
+  agentId: string
+  agentName: string
+  farmName: string
+  location: string
+  teaType: string
+  weightGram: number
+  quantityAvailable: number
+  price: number          // VND / gói
+  description: string
+  contact: string
+  bankName?: string      // Tên ngân hàng
+  bankAccount?: string   // Số tài khoản
+  bankOwner?: string     // Chủ tài khoản
+  verifyUrl: string
+  status: 'active' | 'closed' | 'sold'
+  createdAt: string
+  updatedAt: string
+}
+
+export const listingApi = {
+  list: () => api.get<Listing[]>('/api/listings'),
+  mine: () => api.get<Listing[]>('/api/listings/mine'),
+  get: (id: string) => api.get<Listing>(`/api/listings/${id}`),
+  create: (data: {
+    batchId: string
+    price: number
+    quantityAvailable: number
+    description: string
+    contact: string
+    bankName?: string
+    bankAccount?: string
+    bankOwner?: string
+  }) => api.post<Listing>('/api/listings', data),
+  update: (id: string, data: Partial<{
+    price: number
+    quantityAvailable: number
+    description: string
+    contact: string
+    bankName: string
+    bankAccount: string
+    bankOwner: string
+    status: 'active' | 'closed' | 'sold'
+  }>) => api.patch<Listing>(`/api/listings/${id}`, data),
+  delete: (id: string) => api.delete(`/api/listings/${id}`),
 }
 
 // ── Admin ──────────────────────────────────────────────────────────────────────

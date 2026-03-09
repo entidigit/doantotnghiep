@@ -136,3 +136,67 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, agent)
 }
+
+// ─── PATCH /api/auth/profile ─────────────────────────────────────────────
+
+func (h *AuthHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
+	agentID := getAgentID(r)
+
+	var body struct {
+		FullName    *string `json:"fullName"`
+		FarmName    *string `json:"farmName"`
+		Location    *string `json:"location"`
+		BankName    *string `json:"bankName"`
+		BankAccount *string `json:"bankAccount"`
+		BankOwner   *string `json:"bankOwner"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	set := bson.M{}
+	if body.FullName != nil {
+		set["fullName"] = *body.FullName
+	}
+	if body.FarmName != nil {
+		set["farmName"] = *body.FarmName
+	}
+	if body.Location != nil {
+		set["location"] = *body.Location
+	}
+	if body.BankName != nil {
+		set["bankName"] = *body.BankName
+	}
+	if body.BankAccount != nil {
+		set["bankAccount"] = *body.BankAccount
+	}
+	if body.BankOwner != nil {
+		set["bankOwner"] = *body.BankOwner
+	}
+
+	if len(set) == 0 {
+		writeError(w, http.StatusBadRequest, "no fields to update")
+		return
+	}
+
+	var updated models.Agent
+	err := h.DB.Agents.FindOneAndUpdate(
+		ctx,
+		bson.M{"_id": agentID},
+		bson.M{"$set": set},
+	).Decode(&updated)
+
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "update failed")
+		return
+	}
+
+	// Fetch updated agent
+	h.DB.Agents.FindOne(ctx, bson.M{"_id": agentID}).Decode(&updated)
+
+	writeJSON(w, http.StatusOK, updated)
+}

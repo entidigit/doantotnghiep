@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"path"
+	"strconv"
 	"strings"
 	"time"
 
@@ -113,6 +114,16 @@ func (h *BatchHandler) Finalize(w http.ResponseWriter, r *http.Request) {
 	}
 	batchID := parts[len(parts)-2]
 
+	// Đọc quantity từ body (mặc định 1)
+	var body struct {
+		Quantity int `json:"quantity"`
+	}
+	body.Quantity = 1
+	json.NewDecoder(r.Body).Decode(&body)
+	if body.Quantity < 1 {
+		body.Quantity = 1
+	}
+
 	var batch models.TeaBatch
 	err := h.DB.Batches.FindOne(context.Background(),
 		bson.M{"batchId": batchID, "agentId": agentID}).Decode(&batch)
@@ -168,10 +179,32 @@ func (h *BatchHandler) Finalize(w http.ResponseWriter, r *http.Request) {
 			"txHash":      txHash,
 			"verifyUrl":   verifyURL,
 			"qrCode":      qrURL,
+			"quantity":    body.Quantity,
 			"finalizedAt": now,
 		},
 	}
 	h.DB.Batches.UpdateOne(context.Background(), bson.M{"batchId": batchID}, update)
+
+	// Tạo N gói chè, mỗi gói có packageHash riêng
+	packages := make([]interface{}, 0, body.Quantity)
+	pkgModels := make([]models.TeaPackage, 0, body.Quantity)
+	for i := 1; i <= body.Quantity; i++ {
+		pkgInput := batchHash + "|" + strconv.Itoa(i)
+		pkgHashBytes := sha256.Sum256([]byte(pkgInput))
+		pkgHash := blockchain.HashToHex(pkgHashBytes[:])
+		pkg := models.TeaPackage{
+			ID:          primitive.NewObjectID(),
+			BatchID:     batchID,
+			PackageIdx:  i,
+			PackageHash: pkgHash,
+			VerifyURL:   h.BaseURL + "/verify/" + pkgHash,
+			QRCode:      h.BaseURL + "/qr/" + pkgHash,
+			CreatedAt:   now,
+		}
+		packages = append(packages, pkg)
+		pkgModels = append(pkgModels, pkg)
+	}
+	h.DB.Packages.InsertMany(context.Background(), packages)
 
 	writeJSON(w, http.StatusOK, map[string]any{
 		"message":   "batch finalized",
@@ -179,7 +212,38 @@ func (h *BatchHandler) Finalize(w http.ResponseWriter, r *http.Request) {
 		"txHash":    txHash,
 		"verifyUrl": verifyURL,
 		"qrCode":    qrURL,
+		"quantity":  body.Quantity,
+		"packages":  pkgModels,
 	})
+}
+
+// ─── GET /api/batches/:id/packages ──────────────────────────────────────────
+
+func (h *BatchHandler) ListPackages(w http.ResponseWriter, r *http.Request) {
+	// URL: /api/batches/{batchId}/packages
+	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
+	if len(parts) < 3 {
+		writeError(w, http.StatusBadRequest, "invalid path")
+		return
+	}
+	batchID := parts[len(parts)-2]
+
+	cursor, err := h.DB.Packages.Find(context.Background(),
+		bson.M{"batchId": batchID},
+		options.Find().SetSort(bson.D{{Key: "packageIdx", Value: 1}}),
+	)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	defer cursor.Close(context.Background())
+
+	var pkgs []models.TeaPackage
+	cursor.All(context.Background(), &pkgs)
+	if pkgs == nil {
+		pkgs = []models.TeaPackage{}
+	}
+	writeJSON(w, http.StatusOK, pkgs)
 }
 
 // ─── internal helper ─────────────────────────────────────────────────────────

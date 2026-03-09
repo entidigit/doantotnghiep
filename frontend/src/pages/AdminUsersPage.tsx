@@ -5,6 +5,13 @@ import {
 } from 'lucide-react'
 import AdminLayout from '../components/AdminLayout'
 import { adminApi, type Agent } from '../api/client'
+import Toast, { ToastType } from '../components/Toast'
+
+interface ToastState {
+  show: boolean
+  message: string
+  type: ToastType
+}
 
 function fmt(d: string) {
   return new Date(d).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
@@ -15,6 +22,7 @@ export default function AdminUsersPage() {
   const [loading, setLoading] = useState(true)
   const [deleting, setDeleting] = useState<string | null>(null)
   const [confirm, setConfirm] = useState<Agent | null>(null)
+  const [toast, setToast] = useState<ToastState>({ show: false, message: '', type: 'success' })
 
   // Create form state
   const [showCreate, setShowCreate] = useState(false)
@@ -22,6 +30,10 @@ export default function AdminUsersPage() {
   const [createLoading, setCreateLoading] = useState(false)
   const [createError, setCreateError] = useState('')
   const [showPwd, setShowPwd] = useState(false)
+
+  const showToast = (message: string, type: ToastType = 'success') => {
+    setToast({ show: true, message, type })
+  }
 
   const load = () => {
     setLoading(true)
@@ -35,6 +47,9 @@ export default function AdminUsersPage() {
     try {
       await adminApi.deleteUser(user.id)
       setUsers((prev) => prev.filter((u) => u.id !== user.id))
+      showToast('Đã xóa người dùng', 'success')
+    } catch {
+      showToast('Có lỗi xảy ra', 'error')
     } finally {
       setDeleting(null)
       setConfirm(null)
@@ -50,6 +65,7 @@ export default function AdminUsersPage() {
       setUsers((prev) => [data, ...prev])
       setShowCreate(false)
       setCreateForm({ username: '', password: '', fullName: '', farmName: '', location: '' })
+      showToast('Đã tạo đại lý mới', 'success')
     } catch (err: any) {
       setCreateError(err.response?.data?.error || 'Tạo tài khoản thất bại.')
     } finally {
@@ -62,6 +78,15 @@ export default function AdminUsersPage() {
 
   return (
     <AdminLayout>
+      {/* Toast notification */}
+      {toast.show && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast({ ...toast, show: false })}
+        />
+      )}
+
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-4 mb-8">
         <div>

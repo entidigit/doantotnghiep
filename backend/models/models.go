@@ -17,7 +17,10 @@ type Agent struct {
 	FullName     string             `bson:"fullName"        json:"fullName"`
 	FarmName     string             `bson:"farmName"        json:"farmName"`
 	Location     string             `bson:"location"        json:"location"`
-	Role         string             `bson:"role"            json:"role"` // "agent" | "admin"
+	BankName     string             `bson:"bankName"        json:"bankName"`     // Tên ngân hàng
+	BankAccount  string             `bson:"bankAccount"     json:"bankAccount"`  // Số tài khoản
+	BankOwner    string             `bson:"bankOwner"       json:"bankOwner"`    // Chủ tài khoản
+	Role         string             `bson:"role"            json:"role"`         // "agent" | "admin"
 	CreatedAt    time.Time          `bson:"createdAt"       json:"createdAt"`
 }
 
@@ -38,6 +41,7 @@ type TeaBatch struct {
 	FarmName    string             `bson:"farmName"       json:"farmName"`
 	TeaType     string             `bson:"teaType"        json:"teaType"`     // e.g. "Trà xanh Thái Nguyên"
 	WeightGram  int                `bson:"weightGram"     json:"weightGram"`  // khối lượng gói (gram)
+	Quantity    int                `bson:"quantity"       json:"quantity"`    // số gói sản xuất
 	Status      string             `bson:"status"         json:"status"`      // growing | processing | packaged
 	BatchHash   string             `bson:"batchHash"      json:"batchHash"`   // SHA256 of all event hashes
 	TxHash      string             `bson:"txHash"         json:"txHash"`      // blockchain tx of BatchHash
@@ -45,6 +49,52 @@ type TeaBatch struct {
 	VerifyURL   string             `bson:"verifyUrl"      json:"verifyUrl"`   // public verify URL
 	CreatedAt   time.Time          `bson:"createdAt"      json:"createdAt"`
 	FinalizedAt *time.Time         `bson:"finalizedAt"    json:"finalizedAt"`
+}
+
+// ──────────────────────────────────────────────
+// TeaPackage (từng gói chè riêng biệt)
+// ──────────────────────────────────────────────
+
+type TeaPackage struct {
+	ID          primitive.ObjectID `bson:"_id,omitempty"  json:"id"`
+	BatchID     string             `bson:"batchId"        json:"batchId"`
+	PackageIdx  int                `bson:"packageIdx"     json:"packageIdx"`  // số thứ tự (1-based)
+	PackageHash string             `bson:"packageHash"    json:"packageHash"` // SHA256(batchHash+idx)
+	VerifyURL   string             `bson:"verifyUrl"      json:"verifyUrl"`
+	QRCode      string             `bson:"qrCode"         json:"qrCode"`
+	CreatedAt   time.Time          `bson:"createdAt"      json:"createdAt"`
+}
+
+// ──────────────────────────────────────────────
+// Listing (đăng bán)
+// ──────────────────────────────────────────────
+
+const (
+	ListingActive = "active"
+	ListingClosed = "closed"
+	ListingSold   = "sold"
+)
+
+type Listing struct {
+	ID                primitive.ObjectID `bson:"_id,omitempty"       json:"id"`
+	BatchID           string             `bson:"batchId"             json:"batchId"`
+	AgentID           primitive.ObjectID `bson:"agentId"             json:"agentId"`
+	AgentName         string             `bson:"agentName"           json:"agentName"`
+	FarmName          string             `bson:"farmName"            json:"farmName"`
+	Location          string             `bson:"location"            json:"location"`
+	TeaType           string             `bson:"teaType"             json:"teaType"`
+	WeightGram        int                `bson:"weightGram"          json:"weightGram"`   // gram/gói
+	QuantityAvailable int                `bson:"quantityAvailable"   json:"quantityAvailable"`
+	Price             int                `bson:"price"               json:"price"`        // VND / gói
+	Description       string             `bson:"description"         json:"description"`
+	Contact           string             `bson:"contact"             json:"contact"`      // SĐT
+	BankName          string             `bson:"bankName"            json:"bankName"`     // Tên ngân hàng
+	BankAccount       string             `bson:"bankAccount"         json:"bankAccount"`  // Số tài khoản
+	BankOwner         string             `bson:"bankOwner"           json:"bankOwner"`    // Chủ tài khoản
+	VerifyURL         string             `bson:"verifyUrl"           json:"verifyUrl"`
+	Status            string             `bson:"status"              json:"status"`       // active | closed | sold
+	CreatedAt         time.Time          `bson:"createdAt"           json:"createdAt"`
+	UpdatedAt         time.Time          `bson:"updatedAt"           json:"updatedAt"`
 }
 
 // ──────────────────────────────────────────────

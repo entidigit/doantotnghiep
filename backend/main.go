@@ -48,6 +48,7 @@ func main() {
 	eventH := &handlers.EventHandler{DB: db, Chain: chain, UploadDir: uploadDir, BaseURL: cfg.BaseURL}
 	verifyH := &handlers.VerifyHandler{DB: db, BaseURL: cfg.BaseURL}
 	adminH := &handlers.AdminHandler{DB: db}
+	listingH := &handlers.ListingHandler{DB: db}
 
 	jwtMW := middleware.JWT(cfg.JWTSecret)
 
@@ -67,6 +68,13 @@ func main() {
 	// Auth
 	mux.HandleFunc("/api/auth/login", authH.Login)
 	mux.Handle("/api/auth/me", jwtMW(http.HandlerFunc(authH.Me)))
+	mux.Handle("/api/auth/profile", jwtMW(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPatch {
+			authH.UpdateProfile(w, r)
+		} else {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		}
+	})))
 
 	// Batches (protected)
 	mux.Handle("/api/batches", jwtMW(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -91,12 +99,51 @@ func main() {
 			eventH.Create(w, r)
 		case endsWith(path, "/events") && r.Method == http.MethodGet:
 			eventH.List(w, r)
+		case endsWith(path, "/packages") && r.Method == http.MethodGet:
+			batchH.ListPackages(w, r)
 		case r.Method == http.MethodGet:
 			batchH.Get(w, r)
 		default:
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		}
 	})))
+
+	// Listings
+	// GET /api/listings        → public list
+	// POST /api/listings       → protected create
+	// GET /api/listings/mine   → protected my listings
+	// GET /api/listings/:id    → public detail
+	// PATCH /api/listings/:id  → protected update
+	// DELETE /api/listings/:id → protected delete
+	mux.HandleFunc("/api/listings", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			listingH.List(w, r)
+		case http.MethodPost:
+			jwtMW(http.HandlerFunc(listingH.Create)).ServeHTTP(w, r)
+		default:
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+	mux.HandleFunc("/api/listings/mine", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			jwtMW(http.HandlerFunc(listingH.Mine)).ServeHTTP(w, r)
+		} else {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+	mux.HandleFunc("/api/listings/", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			listingH.Get(w, r)
+		case http.MethodPatch:
+			jwtMW(http.HandlerFunc(listingH.Update)).ServeHTTP(w, r)
+		case http.MethodDelete:
+			jwtMW(http.HandlerFunc(listingH.Delete)).ServeHTTP(w, r)
+		default:
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
 
 	// Admin routes (JWT + admin role required)
 	adminMW := func(h http.Handler) http.Handler { return jwtMW(middleware.RequireAdmin(h)) }

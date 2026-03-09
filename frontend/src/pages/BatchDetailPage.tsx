@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
+import { QRCodeSVG } from 'qrcode.react'
 import { useParams, Link } from 'react-router-dom'
 import {
   ChevronLeft, Plus, Package, QrCode, ExternalLink,
@@ -9,18 +10,25 @@ import {
   PackageCheck, CircleCheck, CircleX,
 } from 'lucide-react'
 import Layout from '../components/Layout'
-import { batchApi, eventApi, type TeaBatch, type Event } from '../api/client'
+import { batchApi, eventApi, type TeaBatch, type Event, type TeaPackage } from '../api/client'
+import Toast, { ToastType } from '../components/Toast'
+
+interface ToastState {
+  show: boolean
+  message: string
+  type: ToastType
+}
 
 // ── Stage config ─────────────────────────────────────────────────────────────
 
 const STAGES = [
-  { value: 'planting',    label: 'Trồng cây',  Icon: Sprout,    dotClass: 'bg-emerald-50 text-emerald-600 border-emerald-200' },
-  { value: 'fertilizing', label: 'Bón phân',   Icon: Leaf,      dotClass: 'bg-lime-50    text-lime-600    border-lime-200'    },
-  { value: 'spraying',    label: 'Phun thuốc', Icon: Droplets,  dotClass: 'bg-blue-50    text-blue-600    border-blue-200'    },
-  { value: 'harvesting',  label: 'Thu hoạch',  Icon: Scissors,  dotClass: 'bg-green-50   text-green-600   border-green-200'   },
-  { value: 'drying',      label: 'Phơi sấy',   Icon: Sun,       dotClass: 'bg-amber-50   text-amber-600   border-amber-200'   },
-  { value: 'processing',  label: 'Chế biến',   Icon: Settings2, dotClass: 'bg-orange-50  text-orange-600  border-orange-200'  },
-  { value: 'packaging',   label: 'Đóng gói',   Icon: Package,   dotClass: 'bg-teal-50    text-teal-600    border-teal-200'    },
+  { value: 'planting',    label: 'Trồng cây',  Icon: Sprout,    bg: 'bg-emerald-50', text: 'text-emerald-800', border: 'border-emerald-200', dot: 'bg-emerald-500' },
+  { value: 'fertilizing', label: 'Bón phân',   Icon: Leaf,      bg: 'bg-lime-50',    text: 'text-lime-800',    border: 'border-lime-200',    dot: 'bg-lime-600'    },
+  { value: 'spraying',    label: 'Phun thuốc', Icon: Droplets,  bg: 'bg-blue-50',    text: 'text-blue-800',    border: 'border-blue-200',    dot: 'bg-blue-500'    },
+  { value: 'harvesting',  label: 'Thu hoạch',  Icon: Scissors,  bg: 'bg-green-50',   text: 'text-green-800',   border: 'border-green-200',   dot: 'bg-green-600'   },
+  { value: 'drying',      label: 'Phơi sấy',   Icon: Sun,       bg: 'bg-amber-50',   text: 'text-amber-800',   border: 'border-amber-200',   dot: 'bg-amber-500'   },
+  { value: 'processing',  label: 'Chế biến',   Icon: Settings2, bg: 'bg-orange-50',  text: 'text-orange-800',  border: 'border-orange-200',  dot: 'bg-orange-500'  },
+  { value: 'packaging',   label: 'Đóng gói',   Icon: Package,   bg: 'bg-teal-50',    text: 'text-teal-800',    border: 'border-teal-200',    dot: 'bg-teal-600'    },
 ]
 
 const STAGE_MAP = Object.fromEntries(STAGES.map((s) => [s.value, s]))
@@ -39,7 +47,14 @@ function fmtFull(d: string) {
 
 // ── Confirm Modal ─────────────────────────────────────────────────────────────
 
-function ConfirmModal({ onConfirm, onCancel }: { onConfirm: () => void; onCancel: () => void }) {
+function ConfirmModal({
+  quantity, setQuantity, onConfirm, onCancel,
+}: {
+  quantity: number
+  setQuantity: (n: number) => void
+  onConfirm: () => void
+  onCancel: () => void
+}) {
   return (
     <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
@@ -55,13 +70,40 @@ function ConfirmModal({ onConfirm, onCancel }: { onConfirm: () => void; onCancel
             </p>
           </div>
         </div>
+        {/* Số lượng gói */}
+        <div className="mb-5">
+          <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+            Số lượng gói chè sản xuất
+          </label>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setQuantity(Math.max(1, quantity - 1))}
+              className="w-9 h-9 rounded-xl border border-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-50 transition font-bold text-lg"
+            >−</button>
+            <input
+              type="number"
+              min={1}
+              max={10000}
+              value={quantity}
+              onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+              className="flex-1 text-center border border-gray-200 rounded-xl py-2 text-base font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-400"
+            />
+            <button
+              type="button"
+              onClick={() => setQuantity(quantity + 1)}
+              className="w-9 h-9 rounded-xl border border-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-50 transition font-bold text-lg"
+            >+</button>
+          </div>
+          <p className="text-xs text-gray-400 mt-1.5">Mỗi gói sẽ có 1 mã QR riêng biệt để truy xuất nguồn gốc.</p>
+        </div>
         <div className="flex gap-3">
           <button onClick={onCancel} className="flex-1 btn-ghost justify-center">Hủy</button>
           <button
             onClick={onConfirm}
             className="flex-1 bg-amber-500 hover:bg-amber-600 text-white font-semibold py-2 rounded-xl transition flex items-center justify-center gap-2 text-sm"
           >
-            <PackageCheck className="w-4 h-4" /> Đóng gói
+            <PackageCheck className="w-4 h-4" /> Đóng gói {quantity} gói
           </button>
         </div>
       </div>
@@ -70,27 +112,6 @@ function ConfirmModal({ onConfirm, onCancel }: { onConfirm: () => void; onCancel
 }
 
 // ── Toast ─────────────────────────────────────────────────────────────────────
-
-function Toast({ msg, type, onClose }: { msg: string; type: 'error' | 'success'; onClose: () => void }) {
-  useEffect(() => {
-    const t = setTimeout(onClose, 4000)
-    return () => clearTimeout(t)
-  }, [onClose])
-  return (
-    <div className="fixed bottom-6 right-6 z-50 animate-slide-up">
-      <div className={`flex items-start gap-3 px-4 py-3 rounded-xl shadow-lg border max-w-xs ${
-        type === 'error' ? 'bg-red-50 border-red-200 text-red-800' : 'bg-emerald-50 border-emerald-200 text-emerald-800'
-      }`}>
-        {type === 'error'
-          ? <CircleX className="w-4 h-4 shrink-0 mt-0.5 text-red-500" />
-          : <CircleCheck className="w-4 h-4 shrink-0 mt-0.5 text-emerald-500" />}
-        <p className="text-sm font-medium flex-1 leading-snug">{msg}</p>
-        <button onClick={onClose} className="text-gray-400 hover:text-gray-600 shrink-0"><X className="w-3.5 h-3.5" /></button>
-      </div>
-    </div>
-  )
-}
-
 // ── Image Gallery Modal ────────────────────────────────────────────────────────
 
 function ImageGallery({ images, onClose, startIdx = 0 }: {
@@ -134,7 +155,7 @@ function ImageGallery({ images, onClose, startIdx = 0 }: {
 // ── Event card ────────────────────────────────────────────────────────────────
 
 function EventCard({ ev, idx, total }: { ev: Event; idx: number; total: number }) {
-  const stage = STAGE_MAP[ev.stage] || { emoji: '📌', label: ev.stage, color: 'gray' }
+  const stage = STAGE_MAP[ev.stage] ?? { label: ev.stage, Icon: Package, bg: 'bg-gray-50', text: 'text-gray-700', border: 'border-gray-200', dot: 'bg-gray-400' }
   const [expanded, setExpanded] = useState(idx === 0)
   const [gallery, setGallery] = useState<{ images: string[]; start: number } | null>(null)
 
@@ -150,8 +171,8 @@ function EventCard({ ev, idx, total }: { ev: Event; idx: number; total: number }
       <div className="flex gap-4">
         {/* Timeline line */}
         <div className="flex flex-col items-center shrink-0">
-          <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border ${stage.dotClass}`}>
-            <stage.Icon className="w-4 h-4" />
+          <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 shadow-sm ${stage.dot}`}>
+            <stage.Icon className="w-4 h-4 text-white" />
           </div>
           {idx < total - 1 && (
             <div className="w-0.5 flex-1 bg-gradient-to-b from-emerald-200 to-transparent mt-2 min-h-[24px]" />
@@ -160,27 +181,27 @@ function EventCard({ ev, idx, total }: { ev: Event; idx: number; total: number }
 
         {/* Content */}
         <div className="flex-1 pb-6">
-          <div
-            className="card cursor-pointer hover:shadow-md transition-all duration-200 overflow-hidden"
-            onClick={() => setExpanded(!expanded)}
-          >
-            {/* Header */}
-            <div className="p-4 flex items-center justify-between gap-3">
+          <div className="card overflow-hidden hover:shadow-md transition-all duration-200">
+            {/* Colored stage header */}
+            <div
+              className={`flex items-center gap-3 px-4 py-3 ${stage.bg} border-b ${stage.border} cursor-pointer select-none`}
+              onClick={() => setExpanded(!expanded)}
+            >
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-bold text-gray-900 text-sm">{stage.label}</span>
+                  <span className={`font-bold text-sm ${stage.text}`}>{stage.label}</span>
                   {ev.images?.length > 0 && (
-                    <span className="inline-flex items-center gap-1 text-[10px] bg-blue-50 text-blue-600 border border-blue-100 px-1.5 py-0.5 rounded-full font-medium">
+                    <span className="inline-flex items-center gap-1 text-[10px] bg-blue-100 text-blue-700 border border-blue-200 px-1.5 py-0.5 rounded-full font-semibold">
                       <ImageIcon className="w-2.5 h-2.5" /> {ev.images.length} ảnh
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1">
+                <p className="text-xs text-gray-600 mt-0.5 flex items-center gap-1">
                   <Clock className="w-3 h-3" /> {fmtFull(ev.timestamp)}
                   {ev.location && <><span className="mx-1">·</span><MapPin className="w-3 h-3" />{ev.location}</>}
                 </p>
               </div>
-              <div className="shrink-0 text-gray-400">
+              <div className="shrink-0 text-gray-500">
                 {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
               </div>
             </div>
@@ -190,16 +211,16 @@ function EventCard({ ev, idx, total }: { ev: Event; idx: number; total: number }
               <div className="border-t border-gray-100 p-4 space-y-4 animate-fade-in">
                 {ev.description && (
                   <div>
-                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5 flex items-center gap-1">
+                    <p className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-1.5 flex items-center gap-1">
                       <Info className="w-3 h-3" /> Mô tả
                     </p>
-                    <p className="text-sm text-gray-700 leading-relaxed">{ev.description}</p>
+                    <p className="text-sm text-gray-800 leading-relaxed">{ev.description}</p>
                   </div>
                 )}
 
                 {ev.images?.length > 0 && (
                   <div>
-                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2 flex items-center gap-1">
+                    <p className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-2 flex items-center gap-1">
                       <Camera className="w-3 h-3" /> Hình ảnh ({ev.images.length})
                     </p>
                     <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
@@ -225,9 +246,9 @@ function EventCard({ ev, idx, total }: { ev: Event; idx: number; total: number }
                 )}
 
                 {ev.eventHash && (
-                  <div className="bg-gray-50 rounded-lg px-3 py-2">
-                    <p className="text-[10px] text-gray-400 font-medium mb-1 uppercase tracking-wide">Blockchain hash</p>
-                    <p className="text-[11px] font-mono text-gray-600 break-all">{ev.eventHash}</p>
+                  <div className="bg-gray-100 border border-gray-200 rounded-lg px-3 py-2">
+                    <p className="text-[10px] text-gray-700 font-bold mb-1 uppercase tracking-wide">Blockchain hash</p>
+                    <p className="text-[11px] font-mono text-gray-700 break-all">{ev.eventHash}</p>
                   </div>
                 )}
               </div>
@@ -406,14 +427,17 @@ export default function BatchDetailPage() {
 
   const [batch, setBatch] = useState<TeaBatch | null>(null)
   const [events, setEvents] = useState<Event[]>([])
+  const [packages, setPackages] = useState<TeaPackage[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [finalizing, setFinalizing] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
-  const [toast, setToast] = useState<{ msg: string; type: 'error' | 'success' } | null>(null)
+  const [quantity, setQuantity] = useState(1)
+  const [toast, setToast] = useState<ToastState>({ show: false, message: '', type: 'success' })
+  const [showAllPkgs, setShowAllPkgs] = useState(false)
 
-  const showToast = useCallback((msg: string, type: 'error' | 'success' = 'error') => {
-    setToast({ msg, type })
+  const showToast = useCallback((message: string, type: ToastType = 'error') => {
+    setToast({ show: true, message, type })
   }, [])
 
   const load = () => {
@@ -421,6 +445,9 @@ export default function BatchDetailPage() {
     batchApi.get(id).then((r) => {
       setBatch(r.data.batch)
       setEvents(r.data.events)
+      if (r.data.batch.status === 'packaged') {
+        batchApi.listPackages(id).then((pr) => setPackages(pr.data)).catch(() => {})
+      }
     }).finally(() => setLoading(false))
   }
 
@@ -431,7 +458,8 @@ export default function BatchDetailPage() {
     setShowConfirm(false)
     setFinalizing(true)
     try {
-      await batchApi.finalize(id)
+      const res = await batchApi.finalize(id, quantity)
+      setPackages(res.data.packages || [])
       load()
     } catch (err: any) {
       showToast(err.response?.data?.error || 'Lỗi khi đóng gói')
@@ -457,7 +485,7 @@ export default function BatchDetailPage() {
       <div className="py-20 text-center">
         <Package className="w-14 h-14 text-gray-200 mx-auto mb-4" />
         <p className="text-gray-500">Không tìm thấy lô chè</p>
-        <Link to="/" className="btn-primary mt-4 mx-auto w-fit">Quay lại</Link>
+        <Link to="/dashboard" className="btn-primary mt-4 mx-auto w-fit">Quay lại</Link>
       </div>
     </Layout>
   )
@@ -472,16 +500,22 @@ export default function BatchDetailPage() {
     <Layout>
       {showConfirm && (
         <ConfirmModal
+          quantity={quantity}
+          setQuantity={setQuantity}
           onConfirm={doFinalize}
           onCancel={() => setShowConfirm(false)}
         />
       )}
-      {toast && (
-        <Toast msg={toast.msg} type={toast.type} onClose={() => setToast(null)} />
+      {toast.show && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast({ ...toast, show: false })}
+        />
       )}
       <div className="max-w-6xl mx-auto">
         {/* Back link */}
-        <Link to="/" className="btn-ghost mb-5 -ml-2">
+        <Link to="/dashboard" className="btn-ghost mb-5 -ml-2">
           <ChevronLeft className="w-4 h-4" /> Quay lại Dashboard
         </Link>
 
@@ -498,11 +532,11 @@ export default function BatchDetailPage() {
                 </span>
               </div>
               <h1 className="page-title">{batch.teaType || 'Lô chè'}</h1>
-              <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-sm text-gray-500">
-                {batch.farmName && <span>{batch.farmName}</span>}
+              <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-sm text-gray-700">
+                {batch.farmName && <span className="font-semibold">{batch.farmName}</span>}
                 <span>{batch.weightGram}g / gói</span>
                 <span>{fmt(batch.createdAt)}</span>
-                <span className="font-mono text-xs text-gray-400">{batch.batchId.slice(0, 12)}...</span>
+                <span className="font-mono text-xs text-gray-500">{batch.batchId.slice(0, 12)}...</span>
               </div>
             </div>
           </div>
@@ -511,8 +545,8 @@ export default function BatchDetailPage() {
           {!isPackaged && (
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Tiến độ giai đoạn</span>
-                <span className="text-xs font-bold text-emerald-600">{stagesDone.length} / {STAGES.length} giai đoạn</span>
+                <span className="text-xs font-bold text-gray-700 uppercase tracking-wide">Tiến độ giai đoạn</span>
+                <span className="text-xs font-bold text-emerald-700">{stagesDone.length} / {STAGES.length} giai đoạn</span>
               </div>
               <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
                 <div
@@ -563,7 +597,7 @@ export default function BatchDetailPage() {
                   <QrCode className="w-3.5 h-3.5" /> Tải QR Code
                 </a>
                 <a
-                  href={batch.verifyUrl}
+                  href={`${window.location.origin}/verify/${batch.batchHash}`}
                   target="_blank"
                   rel="noreferrer"
                   className="btn-secondary text-xs py-1.5 px-3"
@@ -585,7 +619,7 @@ export default function BatchDetailPage() {
           ].map((s) => (
             <div key={s.label} className={`card p-4 border-l-4 ${s.border} animate-fade-in`}>
               <div className={`text-2xl font-extrabold ${s.accent}`}>{s.value}</div>
-              <div className="text-xs text-gray-400 mt-0.5">{s.label}</div>
+              <div className="text-xs text-gray-600 font-semibold mt-0.5">{s.label}</div>
             </div>
           ))}
         </div>
@@ -614,8 +648,8 @@ export default function BatchDetailPage() {
             {showForm && !isPackaged && (
               <AddEventForm
                 batchId={id!}
-                onSaved={() => { setShowForm(false); load() }}
-                onError={(msg) => showToast(msg)}
+                onSaved={() => { setShowForm(false); load(); showToast('Đã thêm sự kiện', 'success') }}
+                onError={(message) => showToast(message, 'error')}
               />
             )}
 
@@ -662,8 +696,8 @@ export default function BatchDetailPage() {
                   { k: 'Trạng thái', v: isPackaged ? 'Đã đóng gói' : 'Đang sản xuất' },
                 ].filter((r) => r.v).map(({ k, v }) => (
                   <div key={k} className="flex items-start justify-between gap-2 py-2">
-                    <dt className="text-xs text-gray-400 shrink-0">{k}</dt>
-                    <dd className="text-xs font-semibold text-right text-gray-800 truncate max-w-[140px]">{v}</dd>
+                    <dt className="text-xs text-gray-600 font-medium shrink-0">{k}</dt>
+                    <dd className="text-xs font-bold text-right text-gray-900 truncate max-w-[140px]">{v}</dd>
                   </div>
                 ))}
               </dl>
@@ -679,13 +713,13 @@ export default function BatchDetailPage() {
                   return (
                     <div key={s.value} className="flex items-center gap-3 py-2">
                       <span className={`w-5 h-5 rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold ${
-                        done ? 'bg-emerald-500 text-white' : 'bg-gray-100 text-gray-300'
+                        done ? 'bg-emerald-500 text-white' : 'bg-gray-200 text-gray-500'
                       }`}>{idx + 1}</span>
-                      <span className={`text-sm flex-1 ${done ? 'text-gray-800 font-medium' : 'text-gray-400'}`}>
+                      <span className={`text-sm flex-1 ${done ? 'text-gray-900 font-semibold' : 'text-gray-500'}`}>
                         {s.label}
                       </span>
                       {done && (
-                        <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
+                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">
                           {eventsInStage.length}x
                         </span>
                       )}
@@ -701,8 +735,8 @@ export default function BatchDetailPage() {
                 <h3 className="section-title mb-2 flex items-center gap-2">
                   <Package className="w-4 h-4 text-amber-500" /> Đóng gói lô chè
                 </h3>
-                <p className="text-xs text-gray-500 mb-4 leading-relaxed">
-                  Hệ thống sẽ tính <strong>BatchHash</strong> từ tất cả sự kiện và ghi lên blockchain IBN. Mỗi gói chè nhận được 1 mã QR riêng biệt để truy xuất nguồn gốc.
+                <p className="text-xs text-gray-600 mb-4 leading-relaxed">
+                  Hệ thống sẽ tính <strong className="text-gray-900">BatchHash</strong> từ tất cả sự kiện và ghi lên blockchain IBN. Mỗi gói chè nhận được 1 mã QR riêng biệt để truy xuất nguồn gốc.
                 </p>
                 {events.length === 0 ? (
                   <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 text-amber-700 text-xs px-3 py-2.5 rounded-xl">
@@ -731,6 +765,9 @@ export default function BatchDetailPage() {
                   <CheckCircle2 className="w-6 h-6 text-white" />
                 </div>
                 <p className="font-bold text-teal-800">Lô đã đóng gói thành công</p>
+                {batch.quantity > 0 && (
+                  <p className="text-sm text-teal-700 mt-1 font-medium">{batch.quantity} gói chè</p>
+                )}
                 {batch.finalizedAt && (
                   <p className="text-xs text-gray-400 mt-1">
                     {fmtFull(batch.finalizedAt)}
@@ -743,10 +780,10 @@ export default function BatchDetailPage() {
                     rel="noreferrer"
                     className="btn-primary w-full"
                   >
-                    <QrCode className="w-4 h-4" /> Tải QR Code
+                    <QrCode className="w-4 h-4" /> QR Lô chè
                   </a>
                   <a
-                    href={batch.verifyUrl}
+                    href={`${window.location.origin}/verify/${batch.batchHash}`}
                     target="_blank"
                     rel="noreferrer"
                     className="btn-secondary w-full"
@@ -758,6 +795,43 @@ export default function BatchDetailPage() {
             )}
           </div>
         </div>
+
+        {/* ── Packages grid ── */}
+        {isPackaged && packages.length > 0 && (
+          <div className="card p-6 animate-fade-in">
+            <h2 className="section-title mb-4 flex items-center gap-2">
+              <Package className="w-4 h-4 text-teal-500" />
+              Danh sách {packages.length} gói chè
+            </h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+              {(showAllPkgs ? packages : packages.slice(0, 12)).map((pkg) => (
+                <div key={pkg.id} className="flex flex-col items-center gap-2 p-3 bg-gray-50 rounded-xl border border-gray-100 hover:border-teal-200 transition">
+                  <QRCodeSVG value={`${window.location.origin}/verify/${pkg.packageHash}`} size={80} />
+                  <span className="text-xs font-semibold text-gray-700">Gói #{pkg.packageIdx}</span>
+                  <a
+                    href={`${window.location.origin}/verify/${pkg.packageHash}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-[10px] text-teal-600 hover:underline flex items-center gap-1"
+                  >
+                    <ExternalLink className="w-2.5 h-2.5" /> Xác thực
+                  </a>
+                </div>
+              ))}
+            </div>
+            {packages.length > 12 && (
+              <button
+                onClick={() => setShowAllPkgs((v) => !v)}
+                className="mt-4 w-full py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition flex items-center justify-center gap-2"
+              >
+                {showAllPkgs
+                  ? <><ChevronUp className="w-4 h-4" /> Thu gọn</>
+                  : <><ChevronDown className="w-4 h-4" /> Xem thêm {packages.length - 12} gói còn lại</>
+                }
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </Layout>
   )

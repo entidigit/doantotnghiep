@@ -16,5 +16,6 @@ export default function ProtectedRoute() {
   // Admin không được vào trang đại lý → chuyển sang trang admin
   if (isAdmin) return <Navigate to="/admin/users" replace />
 
+
   return <Outlet />
 }

@@ -27,7 +27,7 @@ services:
       PORT:           "8080"
       MONGO_URI:      mongodb://${MONGO_USER:-tea_admin}:${MONGO_PASS:-tea_secret}@mongo:27017/tea_origin?authSource=admin
       JWT_SECRET:     ${JWT_SECRET:-change_me_in_production}
-      BASE_URL:       ${BASE_URL:-http://localhost}
+      BASE_URL:       ${BASE_URL:-http://10.16.110.200:9999}
       IBN_API_KEY:    ${IBN_API_KEY:-347e69c9-0946-4e43-9b03-e63a184cd0ad}
       RPC_PUBLIC:     ${RPC_PUBLIC:-http://203.113.135.200:3002/api/rpc}
       RPC_SEND:       ${RPC_SEND:-http://203.113.135.200:3002/api/rpc/send}

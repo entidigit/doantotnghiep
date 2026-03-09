@@ -22,13 +22,35 @@ type VerifyHandler struct {
 // Công khai — không cần JWT
 
 func (h *VerifyHandler) Verify(w http.ResponseWriter, r *http.Request) {
-	batchHash := path.Base(r.URL.Path)
+	hash := path.Base(r.URL.Path)
 
+	// 1. Thử tìm theo batchHash
 	var batch models.TeaBatch
-	if err := h.DB.Batches.FindOne(context.Background(),
-		bson.M{"batchHash": batchHash}).Decode(&batch); err != nil {
-		writeError(w, http.StatusNotFound, "batch not found or not yet finalized")
-		return
+	batchErr := h.DB.Batches.FindOne(context.Background(),
+		bson.M{"batchHash": hash}).Decode(&batch)
+
+	var pkgInfo map[string]any
+
+	if batchErr != nil {
+		// 2. Thử tìm theo packageHash trong collection packages
+		var pkg models.TeaPackage
+		if pkgErr := h.DB.Packages.FindOne(context.Background(),
+			bson.M{"packageHash": hash}).Decode(&pkg); pkgErr != nil {
+			writeError(w, http.StatusNotFound, "hash not found")
+			return
+		}
+		// Tìm batch cha theo batchId
+		if err := h.DB.Batches.FindOne(context.Background(),
+			bson.M{"batchId": pkg.BatchID}).Decode(&batch); err != nil {
+			writeError(w, http.StatusNotFound, "parent batch not found")
+			return
+		}
+		pkgInfo = map[string]any{
+			"packageIdx":  pkg.PackageIdx,
+			"total":       batch.Quantity,
+			"packageHash": pkg.PackageHash,
+			"verifyUrl":   pkg.VerifyURL,
+		}
 	}
 
 	// Lấy agent info
@@ -46,16 +68,20 @@ func (h *VerifyHandler) Verify(w http.ResponseWriter, r *http.Request) {
 		events = []models.Event{}
 	}
 
-	writeJSON(w, http.StatusOK, map[string]any{
+	resp := map[string]any{
 		"batch":  batch,
 		"agent":  agent,
 		"events": events,
 		"blockchain": map[string]any{
 			"batchHash": batch.BatchHash,
 			"txHash":    batch.TxHash,
-			"verifyUrl": h.BaseURL + "/verify/" + batchHash,
+			"verifyUrl": h.BaseURL + "/verify/" + batch.BatchHash,
 		},
-	})
+	}
+	if pkgInfo != nil {
+		resp["package"] = pkgInfo
+	}
+	writeJSON(w, http.StatusOK, resp)
 }
 
 // ─── GET /qr/:hash ───────────────────────────────────────────────────────────
