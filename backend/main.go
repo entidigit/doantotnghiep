@@ -64,7 +64,6 @@ func main() {
 	mux.Handle("/uploads/", http.StripPrefix("/uploads/", http.FileServer(http.Dir(uploadDir))))
 
 	// Auth
-	mux.HandleFunc("/api/auth/register", authH.Register)
 	mux.HandleFunc("/api/auth/login", authH.Login)
 	mux.Handle("/api/auth/me", jwtMW(http.HandlerFunc(authH.Me)))
 
@@ -102,9 +101,12 @@ func main() {
 	adminMW := func(h http.Handler) http.Handler { return jwtMW(middleware.RequireAdmin(h)) }
 
 	mux.Handle("/api/admin/users", adminMW(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodGet {
+		switch r.Method {
+		case http.MethodGet:
 			adminH.ListUsers(w, r)
-		} else {
+		case http.MethodPost:
+			adminH.CreateAgent(w, r)
+		default:
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		}
 	})))

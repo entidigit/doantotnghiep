@@ -133,6 +133,8 @@ export interface AdminBatch extends TeaBatch {
 
 export const adminApi = {
   listUsers: () => api.get<Agent[]>('/api/admin/users'),
+  createAgent: (data: { username: string; password: string; fullName: string; farmName: string; location: string }) =>
+    api.post<Agent>('/api/admin/users', data),
   deleteUser: (id: string) => api.delete(`/api/admin/users/${id}`),
   listBatches: () => api.get<AdminBatch[]>('/api/admin/batches'),
 }

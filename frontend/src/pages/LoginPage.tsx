@@ -90,10 +90,7 @@ export default function LoginPage() {
         </form>
 
         <p className="text-center text-sm text-gray-500 mt-6">
-          Chưa có tài khoản?{' '}
-          <Link to="/register" className="text-tea-700 font-semibold hover:underline">
-            Đăng ký ngay
-          </Link>
+          Liên hệ quản trị viên để được cấp tài khoản.
         </p>
       </div>
     </div>

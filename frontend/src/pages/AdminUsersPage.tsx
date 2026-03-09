@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import {
   Users, Trash2, RefreshCw, MapPin, Leaf, Calendar,
-  Shield, ShieldCheck, AlertTriangle,
+  Shield, ShieldCheck, AlertTriangle, Plus, X, Eye, EyeOff,
 } from 'lucide-react'
 import AdminLayout from '../components/AdminLayout'
 import { adminApi, type Agent } from '../api/client'
@@ -16,6 +15,13 @@ export default function AdminUsersPage() {
   const [loading, setLoading] = useState(true)
   const [deleting, setDeleting] = useState<string | null>(null)
   const [confirm, setConfirm] = useState<Agent | null>(null)
+
+  // Create form state
+  const [showCreate, setShowCreate] = useState(false)
+  const [createForm, setCreateForm] = useState({ username: '', password: '', fullName: '', farmName: '', location: '' })
+  const [createLoading, setCreateLoading] = useState(false)
+  const [createError, setCreateError] = useState('')
+  const [showPwd, setShowPwd] = useState(false)
 
   const load = () => {
     setLoading(true)
@@ -32,6 +38,22 @@ export default function AdminUsersPage() {
     } finally {
       setDeleting(null)
       setConfirm(null)
+    }
+  }
+
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setCreateError('')
+    setCreateLoading(true)
+    try {
+      const { data } = await adminApi.createAgent(createForm)
+      setUsers((prev) => [data, ...prev])
+      setShowCreate(false)
+      setCreateForm({ username: '', password: '', fullName: '', farmName: '', location: '' })
+    } catch (err: any) {
+      setCreateError(err.response?.data?.error || 'Tạo tài khoản thất bại.')
+    } finally {
+      setCreateLoading(false)
     }
   }
 
@@ -53,6 +75,9 @@ export default function AdminUsersPage() {
         </div>
         <button onClick={load} disabled={loading} className="btn-ghost">
           <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Làm mới
+        </button>
+        <button onClick={() => { setShowCreate(true); setCreateError('') }} className="btn-primary">
+          <Plus className="w-4 h-4" /> Tạo tài khoản đại lý
         </button>
       </div>
 
@@ -151,7 +176,106 @@ export default function AdminUsersPage() {
         )}
       </div>
 
-      {/* Confirm modal */}
+      {/* Create modal */}
+      {showCreate && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 animate-fade-in">
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <h3 className="text-base font-bold text-gray-900">Tạo tài khoản đại lý</h3>
+                <p className="text-xs text-gray-400 mt-0.5">Đại lý sẽ dùng tên đăng nhập này để vào hệ thống</p>
+              </div>
+              <button onClick={() => setShowCreate(false)} className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreate} className="space-y-3.5">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Tên đăng nhập *</label>
+                  <input
+                    autoFocus
+                    required
+                    className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent transition"
+                    value={createForm.username}
+                    onChange={(e) => setCreateForm({ ...createForm, username: e.target.value })}
+                    placeholder="vd: dailyA"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Mật khẩu *</label>
+                  <div className="relative">
+                    <input
+                      required
+                      type={showPwd ? 'text' : 'password'}
+                      className="w-full border border-gray-300 rounded-xl px-3 py-2 pr-9 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent transition"
+                      value={createForm.password}
+                      onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })}
+                      placeholder="Tối thiểu 6 ký tự"
+                    />
+                    <button type="button" onClick={() => setShowPwd(!showPwd)}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                      {showPwd ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Họ và tên</label>
+                <input
+                  className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent transition"
+                  value={createForm.fullName}
+                  onChange={(e) => setCreateForm({ ...createForm, fullName: e.target.value })}
+                  placeholder="Nguyễn Văn A"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Tên trang trại / cơ sở *</label>
+                <input
+                  required
+                  className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent transition"
+                  value={createForm.farmName}
+                  onChange={(e) => setCreateForm({ ...createForm, farmName: e.target.value })}
+                  placeholder="HTX Chè Thái Nguyên"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Địa chỉ</label>
+                <input
+                  className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent transition"
+                  value={createForm.location}
+                  onChange={(e) => setCreateForm({ ...createForm, location: e.target.value })}
+                  placeholder="Thái Nguyên"
+                />
+              </div>
+
+              {createError && (
+                <div className="bg-red-50 border border-red-200 text-red-600 text-sm px-3.5 py-2.5 rounded-xl">
+                  {createError}
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-1">
+                <button type="button" onClick={() => setShowCreate(false)} className="flex-1 btn-ghost justify-center">Hủy</button>
+                <button
+                  type="submit"
+                  disabled={createLoading}
+                  className="flex-1 bg-violet-600 hover:bg-violet-700 text-white py-2 rounded-xl font-medium text-sm transition disabled:opacity-60 flex items-center justify-center gap-1.5"
+                >
+                  {createLoading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                  Tạo tài khoản
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm delete modal */}
       {confirm && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 animate-fade-in">

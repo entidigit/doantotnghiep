@@ -2,12 +2,16 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"strings"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"golang.org/x/crypto/bcrypt"
 
 	"tea-origin/models"
 	"tea-origin/store"
@@ -18,7 +22,6 @@ type AdminHandler struct {
 }
 
 // ─── GET /api/admin/users ─────────────────────────────────────────────────
-// Trả về danh sách tất cả đại lý (trừ trường passwordHash).
 
 func (h *AdminHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
 	cur, err := h.DB.Agents.Find(context.Background(), bson.M{},
@@ -37,11 +40,58 @@ func (h *AdminHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, agents)
 }
 
+// ─── POST /api/admin/users ────────────────────────────────────────────────
+// Admin tạo tài khoản đại lý mới.
+
+func (h *AdminHandler) CreateAgent(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+		FullName string `json:"fullName"`
+		FarmName string `json:"farmName"`
+		Location string `json:"location"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if body.Username == "" || body.Password == "" {
+		writeError(w, http.StatusBadRequest, "username and password required")
+		return
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(body.Password), bcrypt.DefaultCost)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "hashing failed")
+		return
+	}
+
+	agent := models.Agent{
+		ID:           primitive.NewObjectID(),
+		Username:     body.Username,
+		PasswordHash: string(hash),
+		FullName:     body.FullName,
+		FarmName:     body.FarmName,
+		Location:     body.Location,
+		Role:         "agent",
+		CreatedAt:    time.Now(),
+	}
+
+	_, err = h.DB.Agents.InsertOne(context.Background(), agent)
+	if mongo.IsDuplicateKeyError(err) {
+		writeError(w, http.StatusConflict, "username already exists")
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusCreated, agent)
+}
+
 // ─── DELETE /api/admin/users/:id ─────────────────────────────────────────
-// Xóa một đại lý theo ObjectID.
 
 func (h *AdminHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
-	// path: /api/admin/users/<id>
 	idStr := strings.TrimPrefix(r.URL.Path, "/api/admin/users/")
 	oid, err := primitive.ObjectIDFromHex(idStr)
 	if err != nil {
