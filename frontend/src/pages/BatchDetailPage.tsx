@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import {
   ChevronLeft, Plus, Package, QrCode, ExternalLink,
@@ -6,6 +6,7 @@ import {
   Clock, Sprout, Leaf, Activity,
   X, ChevronDown, ChevronUp, Info, Image as ImageIcon,
   Droplets, Scissors, Sun, Settings2, AlertTriangle, Link2, ShieldCheck,
+  PackageCheck, CircleCheck, CircleX,
 } from 'lucide-react'
 import Layout from '../components/Layout'
 import { batchApi, eventApi, type TeaBatch, type Event } from '../api/client'
@@ -34,6 +35,60 @@ function fmtFull(d: string) {
     day: '2-digit', month: '2-digit', year: 'numeric',
     hour: '2-digit', minute: '2-digit',
   })
+}
+
+// ── Confirm Modal ─────────────────────────────────────────────────────────────
+
+function ConfirmModal({ onConfirm, onCancel }: { onConfirm: () => void; onCancel: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+        <div className="flex items-start gap-4 mb-5">
+          <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center shrink-0">
+            <PackageCheck className="w-5 h-5 text-amber-600" />
+          </div>
+          <div>
+            <h3 className="font-bold text-gray-900 text-base">Xác nhận đóng gói lô chè</h3>
+            <p className="text-sm text-gray-500 mt-1 leading-relaxed">
+              Hệ thống sẽ tính <strong className="text-gray-700">BatchHash</strong> từ toàn bộ sự kiện và ghi lên blockchain.<br />
+              <span className="text-amber-600 font-medium">Hành động này không thể hoàn tác.</span>
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-3">
+          <button onClick={onCancel} className="flex-1 btn-ghost justify-center">Hủy</button>
+          <button
+            onClick={onConfirm}
+            className="flex-1 bg-amber-500 hover:bg-amber-600 text-white font-semibold py-2 rounded-xl transition flex items-center justify-center gap-2 text-sm"
+          >
+            <PackageCheck className="w-4 h-4" /> Đóng gói
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+
+function Toast({ msg, type, onClose }: { msg: string; type: 'error' | 'success'; onClose: () => void }) {
+  useEffect(() => {
+    const t = setTimeout(onClose, 4000)
+    return () => clearTimeout(t)
+  }, [onClose])
+  return (
+    <div className="fixed bottom-6 right-6 z-50 animate-slide-up">
+      <div className={`flex items-start gap-3 px-4 py-3 rounded-xl shadow-lg border max-w-xs ${
+        type === 'error' ? 'bg-red-50 border-red-200 text-red-800' : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+      }`}>
+        {type === 'error'
+          ? <CircleX className="w-4 h-4 shrink-0 mt-0.5 text-red-500" />
+          : <CircleCheck className="w-4 h-4 shrink-0 mt-0.5 text-emerald-500" />}
+        <p className="text-sm font-medium flex-1 leading-snug">{msg}</p>
+        <button onClick={onClose} className="text-gray-400 hover:text-gray-600 shrink-0"><X className="w-3.5 h-3.5" /></button>
+      </div>
+    </div>
+  )
 }
 
 // ── Image Gallery Modal ────────────────────────────────────────────────────────
@@ -186,7 +241,7 @@ function EventCard({ ev, idx, total }: { ev: Event; idx: number; total: number }
 
 // ── Add event form ─────────────────────────────────────────────────────────────
 
-function AddEventForm({ batchId, onSaved }: { batchId: string; onSaved: () => void }) {
+function AddEventForm({ batchId, onSaved, onError }: { batchId: string; onSaved: () => void; onError: (msg: string) => void }) {
   const [stage, setStage] = useState('fertilizing')
   const [desc, setDesc] = useState('')
   const [location, setLocation] = useState('')
@@ -221,7 +276,7 @@ function AddEventForm({ batchId, onSaved }: { batchId: string; onSaved: () => vo
       if (fileRef.current) fileRef.current.value = ''
       onSaved()
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Lỗi khi thêm sự kiện')
+      onError(err.response?.data?.error || 'Lỗi khi thêm sự kiện')
     } finally {
       setSubmitting(false)
     }
@@ -354,6 +409,12 @@ export default function BatchDetailPage() {
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [finalizing, setFinalizing] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
+  const [toast, setToast] = useState<{ msg: string; type: 'error' | 'success' } | null>(null)
+
+  const showToast = useCallback((msg: string, type: 'error' | 'success' = 'error') => {
+    setToast({ msg, type })
+  }, [])
 
   const load = () => {
     if (!id) return
@@ -365,15 +426,15 @@ export default function BatchDetailPage() {
 
   useEffect(() => { load() }, [id])
 
-  const finalize = async () => {
+  const doFinalize = async () => {
     if (!id) return
-    if (!confirm('Xác nhận đóng gói lô chè?\nHành động này sẽ ghi hash lên blockchain và không thể hoàn tác.')) return
+    setShowConfirm(false)
     setFinalizing(true)
     try {
       await batchApi.finalize(id)
       load()
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Lỗi khi đóng gói')
+      showToast(err.response?.data?.error || 'Lỗi khi đóng gói')
     } finally {
       setFinalizing(false)
     }
@@ -409,6 +470,15 @@ export default function BatchDetailPage() {
 
   return (
     <Layout>
+      {showConfirm && (
+        <ConfirmModal
+          onConfirm={doFinalize}
+          onCancel={() => setShowConfirm(false)}
+        />
+      )}
+      {toast && (
+        <Toast msg={toast.msg} type={toast.type} onClose={() => setToast(null)} />
+      )}
       <div className="max-w-6xl mx-auto">
         {/* Back link */}
         <Link to="/" className="btn-ghost mb-5 -ml-2">
@@ -545,6 +615,7 @@ export default function BatchDetailPage() {
               <AddEventForm
                 batchId={id!}
                 onSaved={() => { setShowForm(false); load() }}
+                onError={(msg) => showToast(msg)}
               />
             )}
 
@@ -640,7 +711,7 @@ export default function BatchDetailPage() {
                   </div>
                 ) : (
                   <button
-                    onClick={finalize}
+                    onClick={() => setShowConfirm(true)}
                     disabled={finalizing}
                     className="btn-primary w-full py-3 from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 shadow-amber-500/20"
                   >
