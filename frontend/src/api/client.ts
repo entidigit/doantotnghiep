@@ -101,6 +101,13 @@ export interface VerifyData {
     packageHash: string
     verifyUrl: string
   }
+  buyer?: {
+    name: string
+    phone: string
+    address: string
+    purchaseAt: string
+    txHash: string
+  }
 }
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
@@ -215,6 +222,67 @@ export const listingApi = {
     status: 'active' | 'closed' | 'sold'
   }>) => api.patch<Listing>(`/api/listings/${id}`, data),
   delete: (id: string) => api.delete(`/api/listings/${id}`),
+}
+
+// ── Orders ────────────────────────────────────────────────────────────────────
+
+export interface Order {
+  id: string
+  listingId: string
+  agentId: string
+  packageHash: string
+  buyerName: string
+  buyerPhone: string
+  buyerAddress: string
+  buyerEmail: string
+  quantity: number
+  totalPrice: number
+  paymentImage: string
+  status: 'pending' | 'paid' | 'confirmed' | 'rejected'
+  buyerTxHash: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface OrderResult extends Order {
+  teaType: string
+  farmName: string
+  weightGram: number
+  verifyUrl: string
+}
+
+export const orderApi = {
+  create: (data: {
+    listingId: string
+    packageHash: string
+    buyerName: string
+    buyerPhone: string
+    buyerAddress: string
+    buyerEmail: string
+    quantity: number
+  }) => api.post<Order>('/api/orders', data),
+  
+  uploadPayment: (orderId: string, file: File) => {
+    const formData = new FormData()
+    formData.append('paymentImage', file)
+    return api.post<Order>(`/api/orders/${orderId}/payment`, formData)
+  },
+  
+  get: (orderId: string) => api.get<Order>(`/api/orders/${orderId}`),
+  
+  listForAgent: () => api.get<Order[]>('/api/orders/agent'),
+  
+  confirm: (orderId: string) => api.post<Order>(`/api/orders/${orderId}/confirm`),
+  
+  reject: (orderId: string) => api.post<Order>(`/api/orders/${orderId}/reject`),
+  
+  // Tra cứu đơn hàng đã xác nhận theo SĐT người mua
+  searchByPhone: (phone: string) =>
+    api.get<OrderResult[]>(`/api/orders/by-phone?phone=${encodeURIComponent(phone)}`),
+  
+  // Lấy danh sách packageHash đã được bán (confirmed orders)
+  getSoldPackages: (batchId: string) => 
+    api.get<string[]>(`/api/orders/sold-packages/${batchId}`),
 }
 
 // ── Admin ──────────────────────────────────────────────────────────────────────

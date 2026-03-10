@@ -124,3 +124,32 @@ type Event struct {
 	Timestamp   time.Time          `bson:"timestamp"      json:"timestamp"`   // thời điểm xảy ra
 	CreatedAt   time.Time          `bson:"createdAt"      json:"createdAt"`
 }
+
+// ──────────────────────────────────────────────
+// Order (đơn hàng mua chè)
+// ──────────────────────────────────────────────
+
+const (
+	OrderPending   = "pending"   // chờ thanh toán
+	OrderPaid      = "paid"      // đã gửi ảnh chuyển khoản, chờ xác nhận
+	OrderConfirmed = "confirmed" // đại lý xác nhận đã nhận tiền → ghi blockchain
+	OrderRejected  = "rejected"  // đại lý từ chối
+)
+
+type Order struct {
+	ID            primitive.ObjectID `bson:"_id,omitempty"       json:"id"`
+	ListingID     primitive.ObjectID `bson:"listingId"           json:"listingId"`
+	AgentID       primitive.ObjectID `bson:"agentId"             json:"agentId"`       // đại lý bán
+	PackageHash   string             `bson:"packageHash"         json:"packageHash"`   // hash gói chè mua
+	BuyerName     string             `bson:"buyerName"           json:"buyerName"`
+	BuyerPhone    string             `bson:"buyerPhone"          json:"buyerPhone"`
+	BuyerAddress  string             `bson:"buyerAddress"        json:"buyerAddress"`
+	BuyerEmail    string             `bson:"buyerEmail"          json:"buyerEmail"`
+	Quantity      int                `bson:"quantity"            json:"quantity"`
+	TotalPrice    int                `bson:"totalPrice"          json:"totalPrice"`    // VND
+	PaymentImage  string             `bson:"paymentImage"        json:"paymentImage"`  // ảnh chuyển khoản
+	Status        string             `bson:"status"              json:"status"`        // pending | paid | confirmed | rejected
+	BuyerTxHash   string             `bson:"buyerTxHash"         json:"buyerTxHash"`   // blockchain tx ghi info buyer
+	CreatedAt     time.Time          `bson:"createdAt"           json:"createdAt"`
+	UpdatedAt     time.Time          `bson:"updatedAt"           json:"updatedAt"`
+}

@@ -49,6 +49,7 @@ func main() {
 	verifyH := &handlers.VerifyHandler{DB: db, BaseURL: cfg.BaseURL}
 	adminH := &handlers.AdminHandler{DB: db}
 	listingH := &handlers.ListingHandler{DB: db}
+	orderH := &handlers.OrderHandler{DB: db, Chain: chain, UploadDir: uploadDir}
 
 	jwtMW := middleware.JWT(cfg.JWTSecret)
 
@@ -174,6 +175,58 @@ func main() {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		}
 	})))
+
+	// Orders
+	// POST /api/orders              → public create order
+	// POST /api/orders/:id/payment  → public upload payment image
+	// GET /api/orders/:id           → public get order detail
+	// GET /api/orders/agent         → protected list orders for agent
+	// POST /api/orders/:id/confirm  → protected agent confirm payment
+	// POST /api/orders/:id/reject   → protected agent reject payment
+	// GET /api/orders/sold-packages/:batchId → public get sold package hashes
+	mux.HandleFunc("/api/orders", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			orderH.Create(w, r)
+		} else {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+	mux.HandleFunc("/api/orders/by-phone", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			orderH.SearchByPhone(w, r)
+		} else {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+	mux.HandleFunc("/api/orders/agent", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			jwtMW(http.HandlerFunc(orderH.ListForAgent)).ServeHTTP(w, r)
+		} else {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+	mux.HandleFunc("/api/orders/sold-packages/", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			orderH.GetSoldPackages(w, r)
+		} else {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+	mux.HandleFunc("/api/orders/", func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Path
+		switch {
+		case endsWith(path, "/payment") && r.Method == http.MethodPost:
+			orderH.UploadPayment(w, r)
+		case endsWith(path, "/confirm") && r.Method == http.MethodPost:
+			jwtMW(http.HandlerFunc(orderH.Confirm)).ServeHTTP(w, r)
+		case endsWith(path, "/reject") && r.Method == http.MethodPost:
+			jwtMW(http.HandlerFunc(orderH.Reject)).ServeHTTP(w, r)
+		case r.Method == http.MethodGet:
+			orderH.Get(w, r)
+		default:
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
 
 	// ── Start ─────────────────────────────────────────────────────────────────
 	addr := ":" + cfg.Port

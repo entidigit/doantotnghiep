@@ -7,6 +7,7 @@ import CreateBatchPage from './pages/CreateBatchPage'
 import VerifyPage from './pages/VerifyPage'
 import AdminUsersPage from './pages/AdminUsersPage'
 import AdminBatchesPage from './pages/AdminBatchesPage'
+import AdminOrdersPage from './pages/AdminOrdersPage'
 import MarketplacePage from './pages/MarketplacePage'
 import CreateListingPage from './pages/CreateListingPage'
 import MyListingsPage from './pages/MyListingsPage'
@@ -34,6 +35,7 @@ export default function App() {
           <Route path="/batches/:id" element={<BatchDetailPage />} />
           <Route path="/listings/new" element={<CreateListingPage />} />
           <Route path="/listings/mine" element={<MyListingsPage />} />
+          <Route path="/orders" element={<AdminOrdersPage />} />
           <Route path="/profile" element={<ProfilePage />} />
         </Route>
 

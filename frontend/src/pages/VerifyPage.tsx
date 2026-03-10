@@ -175,6 +175,7 @@ export default function VerifyPage() {
 
   const { batch, agent, events, blockchain } = data
   const pkg = (data as any).package as { packageIdx: number; total: number; packageHash: string } | undefined
+  const buyer = (data as any).buyer as { name: string; phone: string; address: string; purchaseAt: string; txHash: string } | undefined
 
   const stagesDone = STAGES.filter((s) => events.some((e) => e.stage === s.value))
 
@@ -259,6 +260,46 @@ export default function VerifyPage() {
             ))}
           </div>
         </div>
+
+        {/* ── Thông tin người mua (nếu đã bán) ── */}
+        {buyer && (
+          <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-2xl border-2 border-purple-200 shadow-sm overflow-hidden">
+            <div className="px-5 py-4 bg-gradient-to-r from-purple-500 to-indigo-600 border-b border-purple-400">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-white/20 rounded-xl flex items-center justify-center">
+                  <User className="w-4 h-4 text-white" />
+                </div>
+                <h2 className="font-bold text-white text-base">Thông tin người mua</h2>
+              </div>
+              <p className="text-xs text-purple-100 mt-1">Gói chè này đã được bán và xác thực</p>
+            </div>
+            <div className="divide-y divide-purple-100">
+              {([
+                { Icon: User,         label: 'Họ tên',        value: buyer.name },
+                { Icon: MapPin,       label: 'Địa chỉ',       value: buyer.address },
+                { Icon: CalendarDays, label: 'Ngày mua',      value: fmtDateTime(buyer.purchaseAt) },
+              ] as { Icon: typeof User; label: string; value: string }[]).map(({ Icon, label, value }) => (
+                <div key={label} className="flex items-center gap-4 px-5 py-3.5">
+                  <div className="w-8 h-8 bg-purple-100 rounded-xl flex items-center justify-center shrink-0">
+                    <Icon className="w-4 h-4 text-purple-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-purple-600 font-medium">{label}</p>
+                    <p className="text-sm font-semibold text-gray-800">{value}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {buyer.txHash && (
+              <div className="px-5 py-3 bg-white/50 border-t border-purple-100">
+                <p className="text-xs font-semibold text-purple-600 mb-1">Blockchain TX Hash</p>
+                <p className="text-[10px] font-mono break-all text-purple-700 bg-white rounded px-2 py-1">
+                  {buyer.txHash}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* ── Hành trình sản xuất ── */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">

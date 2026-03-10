@@ -4,9 +4,9 @@ import {
   ShoppingCart, Trash2, Plus, Minus, ArrowLeft, CreditCard,
   Package, Leaf, MapPin, AlertCircle, CheckCircle2,
   ShoppingBag, X, Shield, User, MapPinned, MessageSquare,
-  Wallet, Truck, Clock, Building2, Copy
+  Wallet, Truck, Clock, Building2, Copy, Mail
 } from 'lucide-react'
-import { Listing, authApi, listingApi, Agent } from '../api/client'
+import { Listing, authApi, listingApi, orderApi, batchApi, Agent } from '../api/client'
 import Toast, { ToastType } from '../components/Toast'
 
 interface CartItem {
@@ -352,6 +352,7 @@ function CheckoutPage({
     name: '',
     phone: '',
     address: '',
+    email: '',
     note: '',
     paymentMethod: 'cod'
   })
@@ -411,18 +412,107 @@ function CheckoutPage({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    if (form.paymentMethod === 'bank') {
+      // Chuyển sang bước upload ảnh thanh toán
+      setShowPaymentUpload(true)
+      return
+    }
+
+    // COD flow
     setSubmitting(true)
-
-    // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 1500))
-
     setSubmitting(false)
     setSuccess(true)
-
-    // Auto redirect after 3 seconds
     setTimeout(() => {
       onSuccess()
     }, 3000)
+  }
+
+  const [showPaymentUpload, setShowPaymentUpload] = useState(false)
+  const [paymentImage, setPaymentImage] = useState<File | null>(null)
+  const [paymentImagePreview, setPaymentImagePreview] = useState<string>('')
+  const [uploadingPayment, setUploadingPayment] = useState(false)
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      if (file.size > 10 * 1024 * 1024) {
+        showToast('Ảnh không được vượt quá 10MB', 'error')
+        return
+      }
+      setPaymentImage(file)
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setPaymentImagePreview(reader.result as string)
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
+  const handlePaymentUpload = async () => {
+    if (!paymentImage) {
+      showToast('Vui lòng chọn ảnh chứng từ thanh toán', 'error')
+      return
+    }
+
+    setUploadingPayment(true)
+    
+    try {
+      // Tạo order cho từng item trong giỏ hàng
+      // Lưu ý: Hiện tại chỉ support 1 listing/order, nếu có nhiều item cần tạo nhiều order
+      const firstItem = cart[0]
+      
+      // Lấy danh sách packages từ batch
+      const packagesRes = await batchApi.listPackages(firstItem.listing.batchId)
+      const allPackages = packagesRes.data
+      
+      if (!allPackages || allPackages.length === 0) {
+        showToast('Không tìm thấy gói chè. Vui lòng liên hệ người bán.', 'error')
+        setUploadingPayment(false)
+        return
+      }
+      
+      // Lấy danh sách packages đã bán
+      let soldPackageHashes: string[] = []
+      try {
+        const soldRes = await orderApi.getSoldPackages(firstItem.listing.batchId)
+        soldPackageHashes = soldRes.data
+      } catch (err) {
+        // Nếu API chưa có, bỏ qua và chọn package đầu tiên
+        console.warn('getSoldPackages not available, using first package')
+      }
+      
+      // Chọn package chưa được bán
+      const availablePackage = allPackages.find(
+        pkg => !soldPackageHashes.includes(pkg.packageHash)
+      ) || allPackages[0] // Fallback to first package
+      
+      const orderData = {
+        listingId: firstItem.listing.id,
+        packageHash: availablePackage.packageHash,
+        buyerName: form.name,
+        buyerPhone: form.phone,
+        buyerAddress: form.address,
+        buyerEmail: form.email || '',
+        quantity: firstItem.quantity
+      }
+      
+      const orderRes = await orderApi.create(orderData)
+      await orderApi.uploadPayment(orderRes.data.id, paymentImage)
+      
+      setSuccess(true)
+      showToast('Đã gửi thông tin thanh toán. Vui lòng chờ đại lý xác nhận.', 'success')
+      
+      setTimeout(() => {
+        onSuccess()
+      }, 3000)
+    } catch (err: any) {
+      console.error('Payment upload error:', err)
+      showToast(err.response?.data?.error || 'Có lỗi xảy ra. Vui lòng thử lại.', 'error')
+    } finally {
+      setUploadingPayment(false)
+    }
   }
 
   if (success) {
@@ -432,9 +522,14 @@ function CheckoutPage({
           <div className="w-20 h-20 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-emerald-500/30 animate-bounce">
             <CheckCircle2 className="w-10 h-10 text-white" />
           </div>
-          <h2 className="text-2xl font-black text-gray-900 mb-2">Đặt hàng thành công!</h2>
+          <h2 className="text-2xl font-black text-gray-900 mb-2">
+            {form.paymentMethod === 'bank' ? 'Đã gửi thông tin thanh toán!' : 'Đặt hàng thành công!'}
+          </h2>
           <p className="text-gray-600 mb-6">
-            Cảm ơn bạn đã đặt hàng. Người bán sẽ liên hệ với bạn sớm nhất.
+            {form.paymentMethod === 'bank' 
+              ? 'Đại lý sẽ xác nhận thanh toán và liên hệ với bạn sớm nhất.'
+              : 'Cảm ơn bạn đã đặt hàng. Người bán sẽ liên hệ với bạn sớm nhất.'
+            }
           </p>
           <div className="bg-white rounded-2xl border border-emerald-200 p-4 mb-6">
             <p className="text-sm text-gray-600 mb-1">Mã đơn hàng</p>
@@ -442,6 +537,175 @@ function CheckoutPage({
           </div>
           <p className="text-sm text-gray-400">Đang chuyển về trang chủ...</p>
         </div>
+      </div>
+    )
+  }
+
+  // Payment upload screen
+  if (showPaymentUpload) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-emerald-50/30 to-teal-50/30">
+        {toast.show && (
+          <Toast
+            message={toast.message}
+            type={toast.type}
+            onClose={() => setToast({ ...toast, show: false })}
+          />
+        )}
+
+        <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-xl border-b border-gray-200/80 shadow-sm">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-600 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/30">
+                <Leaf className="w-5 h-5 text-white" />
+              </div>
+              <div className="leading-tight">
+                <div className="text-base font-black text-gray-900">Xác nhận thanh toán</div>
+                <div className="text-[10px] text-gray-500 font-medium">Tùng Dương Tea</div>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowPaymentUpload(false)}
+              className="flex items-center gap-2 text-sm font-semibold text-gray-600 hover:text-emerald-600 px-3 py-2 rounded-lg hover:bg-emerald-50/50 transition-all"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Quay lại
+            </button>
+          </div>
+        </header>
+
+        <div className="bg-white border-b border-gray-200">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <div className="flex items-center justify-center gap-2">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-emerald-500 text-white flex items-center justify-center text-sm font-bold">
+                  <CheckCircle2 className="w-5 h-5" />
+                </div>
+                <span className="text-sm font-bold text-emerald-600">Giỏ hàng</span>
+              </div>
+              <div className="w-12 h-0.5 bg-emerald-500" />
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-emerald-500 text-white flex items-center justify-center text-sm font-bold">
+                  <CheckCircle2 className="w-5 h-5" />
+                </div>
+                <span className="text-sm font-bold text-emerald-600">Thanh toán</span>
+              </div>
+              <div className="w-12 h-0.5 bg-emerald-500" />
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-emerald-500 text-white flex items-center justify-center text-sm font-bold">
+                  3
+                </div>
+                <span className="text-sm font-bold text-emerald-600">Xác nhận</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <main className="max-w-3xl mx-auto px-4 sm:px-6 py-10">
+          <div className="bg-white rounded-2xl border-2 border-gray-200 overflow-hidden shadow-lg">
+            <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-5">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
+                  <CreditCard className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-black text-white">Gửi ảnh chứng từ thanh toán</h2>
+                  <p className="text-sm text-blue-100 font-medium">Vui lòng chụp ảnh hoá đơn chuyển khoản</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-6">
+              <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-4">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5 shrink-0" />
+                  <div className="text-sm text-blue-900 leading-relaxed">
+                    <p className="font-bold mb-2">Hướng dẫn:</p>
+                    <ul className="space-y-1 list-disc list-inside">
+                      <li>Chụp ảnh rõ nét hoá đơn chuyển khoản từ app ngân hàng</li>
+                      <li>Đảm bảo thông tin số tiền, ngày giờ hiển thị đầy đủ</li>
+                      <li>Ảnh định dạng JPG, PNG hoặc WEBP, tối đa 10MB</li>
+                      <li>Đại lý sẽ xác nhận trong vòng 24h</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-gray-800 mb-3">
+                  Ảnh chứng từ thanh toán <span className="text-red-500">*</span>
+                </label>
+                
+                {!paymentImagePreview ? (
+                  <label className="block border-2 border-dashed border-gray-300 rounded-xl p-8 text-center cursor-pointer hover:border-blue-500 hover:bg-blue-50/50 transition-all">
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/jpg,image/png,image/webp"
+                      onChange={handleImageSelect}
+                      className="hidden"
+                    />
+                    <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                      <CreditCard className="w-8 h-8 text-gray-400" />
+                    </div>
+                    <p className="text-sm font-bold text-gray-700 mb-1">Nhấn để chọn ảnh</p>
+                    <p className="text-xs text-gray-500">JPG, PNG hoặc WEBP (tối đa 10MB)</p>
+                  </label>
+                ) : (
+                  <div className="relative">
+                    <img
+                      src={paymentImagePreview}
+                      alt="Payment proof"
+                      className="w-full rounded-xl border-2 border-gray-200"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPaymentImage(null)
+                        setPaymentImagePreview('')
+                      }}
+                      className="absolute top-3 right-3 w-8 h-8 bg-red-500 hover:bg-red-600 text-white rounded-lg flex items-center justify-center transition-all shadow-lg"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-gray-50 rounded-xl p-4 space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Người nhận:</span>
+                  <span className="font-bold text-gray-900">{form.name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Số điện thoại:</span>
+                  <span className="font-bold text-gray-900">{form.phone}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Tổng tiền:</span>
+                  <span className="font-bold text-emerald-600 text-lg">{fmt(totalPrice)}</span>
+                </div>
+              </div>
+
+              <button
+                onClick={handlePaymentUpload}
+                disabled={!paymentImage || uploadingPayment}
+                className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-black px-6 py-4 rounded-xl transition-all shadow-lg hover:scale-105"
+              >
+                {uploadingPayment ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Đang gửi...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-5 h-5" />
+                    Xác nhận và gửi
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </main>
       </div>
     )
   }
@@ -568,6 +832,20 @@ function CheckoutPage({
                     onChange={e => setForm({...form, address: e.target.value})}
                     placeholder="Nhập địa chỉ chi tiết"
                     className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400 resize-none transition-all"
+                  />
+                </div>
+                
+                <div>
+                  <label className="flex items-center gap-2 text-sm font-bold text-gray-800 mb-2">
+                    <Mail className="w-4 h-4 text-gray-400" />
+                    Email (tùy chọn)
+                  </label>
+                  <input
+                    type="email"
+                    value={form.email}
+                    onChange={e => setForm({...form, email: e.target.value})}
+                    placeholder="Nhập email để nhận thông báo"
+                    className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400 transition-all"
                   />
                 </div>
                 

@@ -30,6 +30,7 @@ func (h *VerifyHandler) Verify(w http.ResponseWriter, r *http.Request) {
 		bson.M{"batchHash": hash}).Decode(&batch)
 
 	var pkgInfo map[string]any
+	var packageHash string
 
 	if batchErr != nil {
 		// 2. Thử tìm theo packageHash trong collection packages
@@ -45,6 +46,7 @@ func (h *VerifyHandler) Verify(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusNotFound, "parent batch not found")
 			return
 		}
+		packageHash = pkg.PackageHash
 		pkgInfo = map[string]any{
 			"packageIdx":  pkg.PackageIdx,
 			"total":       batch.Quantity,
@@ -80,6 +82,25 @@ func (h *VerifyHandler) Verify(w http.ResponseWriter, r *http.Request) {
 	}
 	if pkgInfo != nil {
 		resp["package"] = pkgInfo
+		
+		// Tìm thông tin người mua nếu gói này đã được bán (confirmed order)
+		if packageHash != "" {
+			var order models.Order
+			if err := h.DB.Orders.FindOne(context.Background(),
+				bson.M{
+					"packageHash": packageHash,
+					"status":      models.OrderConfirmed,
+				}).Decode(&order); err == nil {
+				// Có order confirmed cho package này
+				resp["buyer"] = map[string]any{
+					"name":       order.BuyerName,
+					"phone":      order.BuyerPhone,
+					"address":    order.BuyerAddress,
+					"purchaseAt": order.UpdatedAt,
+					"txHash":     order.BuyerTxHash,
+				}
+			}
+		}
 	}
 	writeJSON(w, http.StatusOK, resp)
 }

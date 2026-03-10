@@ -7,7 +7,7 @@ import {
   Award, Clock, LayoutDashboard, ShoppingCart, CreditCard,
   Plus, Minus, Info, ExternalLink
 } from 'lucide-react'
-import { listingApi, Listing } from '../api/client'
+import { listingApi, orderApi, Listing, OrderResult } from '../api/client'
 import Toast, { ToastType } from '../components/Toast'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -502,6 +502,177 @@ function ProductModal({ listing, onClose }: { listing: Listing; onClose: () => v
   )
 }
 
+// ── Phone Lookup Modal ───────────────────────────────────────────────────────
+
+function PhoneLookupModal({ onClose }: { onClose: () => void }) {
+  const [phone, setPhone] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [results, setResults] = useState<OrderResult[] | null>(null)
+  const [error, setError] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    inputRef.current?.focus()
+  }, [])
+
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const trimmed = phone.trim()
+    if (!trimmed) return
+    setLoading(true)
+    setError('')
+    setResults(null)
+    try {
+      const res = await orderApi.searchByPhone(trimmed)
+      setResults(res.data)
+    } catch {
+      setError('Không thể tra cứu. Vui lòng thử lại.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  function fmtDate(d: string) {
+    return new Date(d).toLocaleString('vi-VN', {
+      day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit'
+    })
+  }
+
+  function fmt(n: number) {
+    return n.toLocaleString('vi-VN') + '₫'
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-3xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="bg-gradient-to-r from-teal-500 to-cyan-600 px-6 py-5 rounded-t-3xl flex items-center justify-between shrink-0">
+          <div>
+            <h2 className="text-xl font-black text-white">Tra cứu gói chè đã mua</h2>
+            <p className="text-sm text-teal-100">Nhập số điện thoại để tìm đơn hàng đã xác nhận</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-9 h-9 bg-white/20 hover:bg-white/30 text-white rounded-xl flex items-center justify-center transition-all"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Search form */}
+        <form onSubmit={handleSearch} className="px-6 py-4 border-b border-gray-100 shrink-0">
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              <input
+                ref={inputRef}
+                type="tel"
+                value={phone}
+                onChange={e => setPhone(e.target.value)}
+                placeholder="VD: 0987654321"
+                className="w-full pl-10 pr-4 py-3 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-teal-400 transition-all"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={loading || !phone.trim()}
+              className="flex items-center gap-2 bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-600 hover:to-cyan-700 text-white font-bold px-5 py-3 rounded-xl transition-all disabled:opacity-50 shrink-0"
+            >
+              {loading ? (
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <Search className="w-4 h-4" />
+              )}
+              Tìm
+            </button>
+          </div>
+        </form>
+
+        {/* Results */}
+        <div className="overflow-y-auto flex-1 px-6 py-4">
+          {error && (
+            <p className="text-sm text-red-500 text-center py-4">{error}</p>
+          )}
+
+          {results !== null && results.length === 0 && (
+            <div className="text-center py-10">
+              <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                <Package className="w-8 h-8 text-gray-300" />
+              </div>
+              <p className="text-sm font-bold text-gray-400">Không tìm thấy đơn hàng nào</p>
+              <p className="text-xs text-gray-400 mt-1">Kiểm tra lại số điện thoại hoặc đơn hàng chưa được xác nhận</p>
+            </div>
+          )}
+
+          {results && results.length > 0 && (
+            <div className="space-y-4">
+              <p className="text-xs text-gray-500 font-semibold">{results.length} đơn hàng đã xác nhận</p>
+              {results.map(order => (
+                <div key={order.id} className="border-2 border-teal-100 rounded-2xl p-4 bg-teal-50/40 space-y-3">
+                  {/* Tea info */}
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-gradient-to-br from-teal-400 to-cyan-500 rounded-xl flex items-center justify-center shrink-0">
+                      <Leaf className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                      <p className="font-bold text-gray-900 text-sm">
+                        {order.teaType || 'Chè'}{order.farmName ? ` — ${order.farmName}` : ''}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {order.quantity} gói{order.weightGram ? ` × ${order.weightGram}g` : ''}
+                        {' · '}{fmt(order.totalPrice)}
+                        {' · '}{fmtDate(order.createdAt)}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Package hash */}
+                  {order.packageHash && (
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">Package Hash:</p>
+                      <p className="text-xs font-mono text-teal-700 break-all bg-white rounded-lg px-2 py-1 border border-teal-200">
+                        {order.packageHash}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Verify link */}
+                  {order.packageHash && (
+                    <a
+                      href={`/verify/${order.packageHash}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 text-xs font-bold text-white bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-600 hover:to-cyan-700 px-4 py-2 rounded-xl transition-all"
+                    >
+                      <Shield className="w-3.5 h-3.5" />
+                      Xem nguồn gốc & thông tin gói chè
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {results === null && !loading && !error && (
+            <div className="text-center py-8">
+              <Phone className="w-12 h-12 text-gray-200 mx-auto mb-3" />
+              <p className="text-sm text-gray-400">Nhập số điện thoại để tra cứu gói chè bạn đã mua</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 const PAGE_SIZE = 12
@@ -514,6 +685,7 @@ export default function MarketplacePage() {
   const [visible, setVisible] = useState(PAGE_SIZE)
   const [selectedListing, setSelectedListing] = useState<Listing | null>(null)
   const [cartCount, setCartCount] = useState(0)
+  const [showPhoneLookup, setShowPhoneLookup] = useState(false)
   const searchRef = useRef<HTMLInputElement>(null)
   
   // Check if user is logged in
@@ -590,6 +762,11 @@ export default function MarketplacePage() {
         />
       )}
 
+      {/* Phone Lookup Modal */}
+      {showPhoneLookup && (
+        <PhoneLookupModal onClose={() => setShowPhoneLookup(false)} />
+      )}
+
       {/* ── Top navbar ── */}
       <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-xl border-b border-gray-200/80 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
@@ -605,24 +782,34 @@ export default function MarketplacePage() {
           </Link>
 
           {/* Search bar – center */}
-          <div className="flex-1 max-w-xl relative">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-            <input
-              ref={searchRef}
-              type="text"
-              value={search}
-              onChange={e => { setSearch(e.target.value); setVisible(PAGE_SIZE) }}
-              placeholder="Tìm loại chè, trang trại, vùng miền..."
-              className="w-full pl-10 pr-10 py-2.5 text-sm bg-gray-100/80 border border-gray-200/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-400/50 focus:border-emerald-400 focus:bg-white transition-all placeholder-gray-400"
-            />
-            {search && (
-              <button 
-                onClick={() => setSearch('')} 
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg p-1 transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
+          <div className="flex-1 max-w-xl flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              <input
+                ref={searchRef}
+                type="text"
+                value={search}
+                onChange={e => { setSearch(e.target.value); setVisible(PAGE_SIZE) }}
+                placeholder="Tìm loại chè, trang trại, vùng miền..."
+                className="w-full pl-10 pr-10 py-2.5 text-sm bg-gray-100/80 border border-gray-200/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-400/50 focus:border-emerald-400 focus:bg-white transition-all placeholder-gray-400"
+              />
+              {search && (
+                <button 
+                  onClick={() => setSearch('')} 
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg p-1 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+            <button
+              onClick={() => setShowPhoneLookup(true)}
+              title="Tra cứu gói chè đã mua theo SĐT"
+              className="shrink-0 flex items-center gap-1.5 bg-teal-50 hover:bg-teal-100 text-teal-700 border border-teal-200 hover:border-teal-300 font-semibold text-xs px-3 py-2.5 rounded-xl transition-all"
+            >
+              <Phone className="w-4 h-4" />
+              <span className="hidden lg:inline">Tra cứu SĐT</span>
+            </button>
           </div>
 
           {/* Right actions */}

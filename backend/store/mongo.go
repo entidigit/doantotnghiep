@@ -17,6 +17,7 @@ type DB struct {
 	Events   *mongo.Collection
 	Packages *mongo.Collection
 	Listings *mongo.Collection
+	Orders   *mongo.Collection
 }
 
 func Connect(uri string) (*DB, error) {
@@ -41,6 +42,7 @@ func Connect(uri string) (*DB, error) {
 		Events:   db.Collection("events"),
 		Packages: db.Collection("packages"),
 		Listings: db.Collection("listings"),
+		Orders:   db.Collection("orders"),
 	}
 
 	store.ensureIndexes(ctx)
@@ -75,6 +77,15 @@ func (s *DB) ensureIndexes(ctx context.Context) {
 	// listings: index on agentId, status, createdAt
 	s.Listings.Indexes().CreateMany(ctx, []mongo.IndexModel{
 		{Keys: bson.D{{Key: "agentId", Value: 1}}},
+		{Keys: bson.D{{Key: "status", Value: 1}}},
+		{Keys: bson.D{{Key: "createdAt", Value: -1}}},
+	})
+
+	// orders: index on agentId, listingId, status
+	s.Orders.Indexes().CreateMany(ctx, []mongo.IndexModel{
+		{Keys: bson.D{{Key: "agentId", Value: 1}}},
+		{Keys: bson.D{{Key: "listingId", Value: 1}}},
+		{Keys: bson.D{{Key: "packageHash", Value: 1}}},
 		{Keys: bson.D{{Key: "status", Value: 1}}},
 		{Keys: bson.D{{Key: "createdAt", Value: -1}}},
 	})
